@@ -11,9 +11,9 @@ const Stack = createNativeStackNavigator();
 function RootStack() {
   return (
     <Stack.Navigator>
-      <Stack.Screen name="Splash" component={Splash} />
+      <Stack.Screen name="Splash" component={Splash} options={{ title: '個人情報取扱主任者認定制度' }}/>
       <Stack.Screen name="Questions" component={Questions} />
-      <Stack.Screen name="Result" component={Result} />
+      <Stack.Screen name="Result" component={Result} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }
