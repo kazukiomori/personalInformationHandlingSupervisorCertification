@@ -1,6 +1,6 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
 import React from 'react';
-import Icon from 'react-native-vector-icons/FontAwesome'; // アイコン用
+import Icon from 'react-native-vector-icons/FontAwesome';
 
 const Result = ({ route, navigation }) => {
   const { correctAnswersCount, answeredQuestions } = route.params;
@@ -8,69 +8,82 @@ const Result = ({ route, navigation }) => {
   const totalQuestions = answeredQuestions.length;
   const correctRate = Math.round((correctAnswersCount / totalQuestions) * 100);
 
-  const handleRestart = () => {
-    // もう一回ボタンが押された場合、質問ページに戻る
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'Questions' }] // 'Questions'という画面に戻る
-    });
-  };
-
   const gotoSplash = () => {
-    // トップに戻るボタンが押された場合、ホーム画面に遷移
-    navigation.popToTop(); // 最初のページに戻る
+    navigation.popToTop();
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>クイズ結果</Text>
-      <Text style={styles.score}>{totalQuestions}問中、{correctAnswersCount} 問正解 正答率は{correctRate}%</Text>
+    <SafeAreaView style={styles.safeContainer}>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.headerContainer}>
+        <Text style={styles.title}>クイズ結果</Text>
+      </View>
+
+      <View style={styles.scoreContainer}>
+        <Text style={styles.scoreText}>{totalQuestions}問中 {correctAnswersCount}問正解</Text>
+        <Text style={styles.rateText}>正答率: {correctRate}%</Text>
+      </View>
 
       <Text style={styles.subTitle}>解答詳細:</Text>
       {answeredQuestions.map((answeredQuestion, index) => {
         const isCorrect = answeredQuestion.selectedAnswer === answeredQuestion.correctAnswer;
         return (
-          <View key={index} style={styles.questionBox}>
-            <View style={styles.resultCircle}>
-              <Text style={styles.resultText}>{isCorrect ? '◯' : '×'}</Text>
-            </View>
+          <View key={index} style={[styles.questionBox, isCorrect ? styles.correctBox : styles.incorrectBox]}>
             <Text style={styles.questionText}>問題: {answeredQuestion.question}</Text>
             <Text style={styles.answerText}>あなたの答え: {answeredQuestion.selectedAnswer}</Text>
-            <Text style={styles.answerText}>正解: {answeredQuestion.correctAnswer}</Text>
+            <Text style={styles.correctAnswerText}>正解: {answeredQuestion.correctAnswer}</Text>
+            <Text style={isCorrect ? styles.correctText : styles.incorrectText}>{isCorrect ? '◯ 正解' : '× 不正解'}</Text>
           </View>
         );
       })}
-      <View style={styles.buttonsContainer}>
-        <TouchableOpacity style={styles.button} onPress={gotoSplash}>
-          <Icon name="home" size={20} color="#fff" />
-          <Text style={styles.buttonText}>トップに戻る</Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity style={styles.button} onPress={handleRestart}>
-          <Icon name="refresh" size={20} color="#fff" />
-          <Text style={styles.buttonText}>もう一回</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity style={styles.button} onPress={gotoSplash}>
+        <Icon name="home" size={20} color="#fff" style={styles.buttonIcon} />
+        <Text style={styles.buttonText}>トップに戻る</Text>
+      </TouchableOpacity>
     </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeContainer: {
     flex: 1,
-    padding: 20,
     backgroundColor: '#f8f8f8',
+  },
+  scrollContainer: {
+    alignItems: "center",
+    paddingBottom: 30, // 下部の余白を確保
+  },
+  headerContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   title: {
     fontSize: 26,
     fontWeight: 'bold',
     color: '#333',
+    marginTop: 20, // 上の余白を増やして見切れを防ぐ
+    marginBottom: 20,
+    textAlign: 'center', // 中央揃えに調整
+  },
+  scoreContainer: {
+    width: '90%',
+    padding: 15,
+    backgroundColor: '#007bff',
+    borderRadius: 10,
+    alignItems: 'center',
     marginBottom: 20,
   },
-  score: {
-    fontSize: 20,
-    color: '#555',
-    marginBottom: 30,
+  scoreText: {
+    fontSize: 22,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  rateText: {
+    fontSize: 18,
+    color: '#fff',
   },
   subTitle: {
     fontSize: 20,
@@ -79,63 +92,64 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   questionBox: {
-    marginBottom: 25,
-    padding: 20,
-    backgroundColor: '#fff',
+    width: '90%',
+    padding: 15,
     borderRadius: 8,
+    marginBottom: 15,
+  },
+  correctBox: {
+    backgroundColor: '#d4edda',
+    borderColor: '#28a745',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
-  resultCircle: {
-    alignSelf: 'flex-start',
-    marginBottom: 10,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  resultText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#007bff', // 青色で◯や×を表示
+  incorrectBox: {
+    backgroundColor: '#f8d7da',
+    borderColor: '#dc3545',
+    borderWidth: 1,
   },
   questionText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 5,
   },
   answerText: {
     fontSize: 16,
     color: '#555',
-    marginBottom: 3,
   },
-  buttonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 30,
-    marginBottom: 30,
+  correctAnswerText: {
+    fontSize: 16,
+    color: '#155724',
+    fontWeight: 'bold',
+  },
+  correctText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#28a745',
+    marginTop: 5,
+  },
+  incorrectText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#dc3545',
+    marginTop: 5,
   },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#007bff',
-    padding: 10,
+    padding: 15,
     borderRadius: 8,
-    width: 150,
+    width: '90%',
     justifyContent: 'center',
+    marginTop: 20,
+  },
+  buttonIcon: {
+    marginRight: 10,
   },
   buttonText: {
     color: '#fff',
-    marginLeft: 10,
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
 
