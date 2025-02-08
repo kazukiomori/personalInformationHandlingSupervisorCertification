@@ -40,9 +40,6 @@ const Splash = ({ navigation }) => {
         <Pressable style={styles.levelBox} onPress={startMistakeQuiz} >
           <Text style={[styles.levelText, { color: "#1E90FF" }]}>選択問題{"\n"}(ミス問題)</Text>
         </Pressable>
-        {/* <Pressable style={styles.levelBox} onPress={() => navigation.navigate("Questions")} >
-          <Text style={[styles.levelText, { color: "#32CD32" }]}>LEVEL 3</Text>
-        </Pressable> */}
       </View>
     </View>
   )
