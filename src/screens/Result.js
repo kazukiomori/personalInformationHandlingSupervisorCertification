@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
 import React from 'react';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import AppBannerAd from "../components/AppBannerAd";
 
 const Result = ({ route, navigation }) => {
   const { correctAnswersCount, answeredQuestions } = route.params;
@@ -14,7 +15,7 @@ const Result = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeContainer}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView contentContainerStyle={styles.scrollContainer} style={styles.scrollView}>
       <View style={styles.headerContainer}>
         <Text style={styles.title}>クイズ結果</Text>
       </View>
@@ -42,12 +43,17 @@ const Result = ({ route, navigation }) => {
         <Text style={styles.buttonText}>トップに戻る</Text>
       </TouchableOpacity>
     </ScrollView>
+    <AppBannerAd />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   safeContainer: {
+    flex: 1,
+    backgroundColor: '#f8f8f8',
+  },
+  scrollView: {
     flex: 1,
     backgroundColor: '#f8f8f8',
   },

@@ -2,6 +2,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Pressable 
 import React, { useState , useEffect} from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { questions as allQuestions } from "../config/question"; // 全ての問題を読み込む
+import AppBannerAd from "../components/AppBannerAd";
 
 const Questions = ({ route, navigation }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -156,25 +157,28 @@ const Questions = ({ route, navigation }) => {
   }
 
   return (
-    <ScrollView style={styles.container}>
-    <View style={styles.container}>
-      <Text style={styles.questionText}>{questions[currentQuestionIndex].question}</Text>
-      {questions[currentQuestionIndex].options.map((option, index) => (
-        <Pressable
-        key={index}
-        style={styles.optionButton}
-        onPress={() => handleAnswerSelection(option, questions[currentQuestionIndex])}
-      >
-        <View style={styles.optionBox}>
-          <Text style={styles.optionText}>{option}</Text>
-        </View>
-        </Pressable>
-      ))}
-       {/* <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-          <Text style={styles.nextButtonText}>次へ</Text>
-        </TouchableOpacity> */}
-    </View>
-    </ScrollView>
+    <>
+      <ScrollView style={styles.container}>
+      <View style={styles.container}>
+        <Text style={styles.questionText}>{questions[currentQuestionIndex].question}</Text>
+        {questions[currentQuestionIndex].options.map((option, index) => (
+          <Pressable
+          key={index}
+          style={styles.optionButton}
+          onPress={() => handleAnswerSelection(option, questions[currentQuestionIndex])}
+        >
+          <View style={styles.optionBox}>
+            <Text style={styles.optionText}>{option}</Text>
+          </View>
+          </Pressable>
+        ))}
+         {/* <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+            <Text style={styles.nextButtonText}>次へ</Text>
+          </TouchableOpacity> */}
+      </View>
+      </ScrollView>
+      <AppBannerAd />
+    </>
   );
 };
 
