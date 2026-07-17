@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Pressable, TextInput } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Pressable, TextInput } from 'react-native'
 import React, { useState , useEffect} from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { questions as allQuestions } from "../config/question"; // 全ての問題を読み込む
@@ -11,13 +11,16 @@ const Questions = ({ route, navigation }) => {
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
   const [answeredQuestions, setAnsweredQuestions] = useState([]);
   const [incorrectQuestions, setIncorrectQuestions] = useState([]);
+  const [isAnswered, setIsAnswered] = useState(false);
+  const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false);
   const { mode } = route.params; // "normal" または "mistake"
-  const [questions, setQuestions] = useState([]); 
+  const [questions, setQuestions] = useState([]);
 
   useEffect(() => {
     setCurrentQuestionIndex(0); // 問題のインデックスをリセット
     setSelectedAnswer(null); // 選択された答えもリセット
     setTextAnswer(''); // 自由入力欄もリセット
+    setIsAnswered(false); // 解答状態もリセット
     const loadQuestions = async () => {
       if (mode === "mistake") {
         const storedQuestions = await AsyncStorage.getItem('incorrectQuestions');
@@ -82,20 +85,22 @@ const Questions = ({ route, navigation }) => {
 
   // 選択肢をタップしたときの処理
   const handleAnswerSelection = async (answer, question) => {
+    if (isAnswered) return; // 解答済みなら二重回答を防ぐ
+
     setSelectedAnswer(answer);
     const isCorrect = answer === question.correctAnswer;
-  
+
     if (isCorrect) {
       setCorrectAnswersCount(prev => prev + 1);
       removeIncorrectQuestion(question);
     }
-  
+
     const answeredQuestion = {
       question: question.question,
       selectedAnswer: answer,
       correctAnswer: question.correctAnswer,
     };
-  
+
     setAnsweredQuestions(prev => [...prev, answeredQuestion]);
 
     if (!isCorrect) {
@@ -111,47 +116,30 @@ const Questions = ({ route, navigation }) => {
         return updatedQuestions;
       });
     }
-  
-    Alert.alert(
-      isCorrect ? "正解！🎉" : "不正解 😢",
-      `あなたの答え: ${answer}\n正解: ${question.correctAnswer}`,
-      [
-        {
-          text: "次へ",
-          onPress: () => handleNext(answeredQuestion, isCorrect), 
-        },
-      ]
-    );
+
+    setLastAnswerCorrect(isCorrect);
+    setIsAnswered(true);
   };
-  
-  const handleNext = (lastAnsweredQuestion, isCorrect) => {
-    if (currentQuestionIndex === questions.length - 1) {
-      Alert.alert(
-        "クイズ終了",
-        `あなたの正解数は ${correctAnswersCount + (isCorrect ? 1 : 0)} 問です！`,
-        [
-          {
-            text: "結果へ",
-            onPress: () => {
-              const finalAnsweredQuestions = lastAnsweredQuestion
-                ? [...answeredQuestions, lastAnsweredQuestion]
-                : answeredQuestions;
-  
-              navigation.navigate('Result', {
-                correctAnswersCount: correctAnswersCount + (isCorrect ? 1 : 0),
-                answeredQuestions: finalAnsweredQuestions,
-              });
-            },
-          },
-        ]
-      );
+
+  const goToNextQuestion = () => {
+    const isLast = currentQuestionIndex === questions.length - 1;
+
+    if (isLast) {
+      navigation.navigate('Result', {
+        correctAnswersCount,
+        answeredQuestions,
+      });
       return;
     }
-    setCurrentQuestionIndex(currentQuestionIndex + 1);
+
+    setIsAnswered(false);
+    setSelectedAnswer(null);
     setTextAnswer('');
+    setCurrentQuestionIndex(currentQuestionIndex + 1);
   };
 
   const handleTextSubmit = (question) => {
+    if (isAnswered) return;
     const trimmed = textAnswer.trim();
     if (!trimmed) {
       return;
@@ -167,44 +155,77 @@ const Questions = ({ route, navigation }) => {
     );
   }
 
+  const currentQuestion = questions[currentQuestionIndex];
+
   return (
     <>
       <ScrollView style={styles.container}>
       <View style={styles.container}>
-        <Text style={styles.questionText}>{questions[currentQuestionIndex].question}</Text>
-        {questions[currentQuestionIndex].options && questions[currentQuestionIndex].options.length > 0 ? (
-          questions[currentQuestionIndex].options.map((option, index) => (
-            <Pressable
-            key={index}
-            style={styles.optionButton}
-            onPress={() => handleAnswerSelection(option, questions[currentQuestionIndex])}
-          >
-            <View style={styles.optionBox}>
-              <Text style={styles.optionText}>{option}</Text>
-            </View>
-            </Pressable>
-          ))
+        <Text style={styles.questionText}>{currentQuestion.question}</Text>
+        {currentQuestion.options && currentQuestion.options.length > 0 ? (
+          currentQuestion.options.map((option, index) => {
+            const isThisCorrect = option === currentQuestion.correctAnswer;
+            const isThisSelected = option === selectedAnswer;
+            return (
+              <Pressable
+                key={index}
+                disabled={isAnswered}
+                style={[
+                  styles.optionButton,
+                  isAnswered && isThisCorrect && styles.optionBoxCorrect,
+                  isAnswered && isThisSelected && !isThisCorrect && styles.optionBoxIncorrect,
+                ]}
+                onPress={() => handleAnswerSelection(option, currentQuestion)}
+              >
+                <View style={styles.optionBox}>
+                  <Text style={styles.optionText}>{option}</Text>
+                </View>
+              </Pressable>
+            );
+          })
         ) : (
           <View style={styles.textAnswerContainer}>
             <TextInput
               style={styles.textInput}
               value={textAnswer}
               onChangeText={setTextAnswer}
+              editable={!isAnswered}
               placeholder="答えを入力してください"
               returnKeyType="done"
-              onSubmitEditing={() => handleTextSubmit(questions[currentQuestionIndex])}
+              onSubmitEditing={() => handleTextSubmit(currentQuestion)}
             />
-            <Pressable
-              style={styles.submitButton}
-              onPress={() => handleTextSubmit(questions[currentQuestionIndex])}
-            >
-              <Text style={styles.submitButtonText}>回答する</Text>
+            {!isAnswered && (
+              <Pressable
+                style={styles.submitButton}
+                onPress={() => handleTextSubmit(currentQuestion)}
+              >
+                <Text style={styles.submitButtonText}>回答する</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {isAnswered && (
+          <View style={[styles.feedbackBox, lastAnswerCorrect ? styles.feedbackCorrect : styles.feedbackIncorrect]}>
+            <Text style={styles.feedbackTitle}>{lastAnswerCorrect ? '正解！🎉' : '不正解 😢'}</Text>
+            {!lastAnswerCorrect && (
+              <Text style={styles.feedbackAnswerText}>
+                あなたの答え: {selectedAnswer}{'\n'}正解: {currentQuestion.correctAnswer}
+              </Text>
+            )}
+            {currentQuestion.explanation ? (
+              <View style={styles.explanationContainer}>
+                <Text style={styles.explanationLabel}>解説</Text>
+                <Text style={styles.explanationText}>{currentQuestion.explanation}</Text>
+              </View>
+            ) : null}
+            <Pressable style={styles.nextButton} onPress={goToNextQuestion}>
+              <Text style={styles.nextButtonText}>
+                {currentQuestionIndex === questions.length - 1 ? '結果へ' : '次へ'}
+              </Text>
             </Pressable>
           </View>
         )}
-         {/* <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-            <Text style={styles.nextButtonText}>次へ</Text>
-          </TouchableOpacity> */}
       </View>
       </ScrollView>
       <AppBannerAd />
@@ -277,5 +298,58 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#fff",
+  },
+  optionBoxCorrect: {
+    borderWidth: 2,
+    borderColor: "#28a745",
+    borderRadius: 8,
+  },
+  optionBoxIncorrect: {
+    borderWidth: 2,
+    borderColor: "#dc3545",
+    borderRadius: 8,
+  },
+  feedbackBox: {
+    marginTop: 10,
+    padding: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  feedbackCorrect: {
+    backgroundColor: "#d4edda",
+    borderColor: "#28a745",
+  },
+  feedbackIncorrect: {
+    backgroundColor: "#f8d7da",
+    borderColor: "#dc3545",
+  },
+  feedbackTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 8,
+  },
+  feedbackAnswerText: {
+    fontSize: 16,
+    color: "#333",
+    marginBottom: 8,
+  },
+  explanationContainer: {
+    marginTop: 4,
+    marginBottom: 12,
+    padding: 10,
+    backgroundColor: "rgba(255,255,255,0.6)",
+    borderRadius: 6,
+  },
+  explanationLabel: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#1565C0",
+    marginBottom: 4,
+  },
+  explanationText: {
+    fontSize: 15,
+    lineHeight: 21,
+    color: "#333",
   },
 })
