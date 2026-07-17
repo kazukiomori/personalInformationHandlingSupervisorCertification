@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Pressable } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Pressable, TextInput } from 'react-native'
 import React, { useState , useEffect} from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { questions as allQuestions } from "../config/question"; // 全ての問題を読み込む
@@ -7,6 +7,7 @@ import AppBannerAd from "../components/AppBannerAd";
 const Questions = ({ route, navigation }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [textAnswer, setTextAnswer] = useState('');
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
   const [answeredQuestions, setAnsweredQuestions] = useState([]);
   const [incorrectQuestions, setIncorrectQuestions] = useState([]);
@@ -16,6 +17,7 @@ const Questions = ({ route, navigation }) => {
   useEffect(() => {
     setCurrentQuestionIndex(0); // 問題のインデックスをリセット
     setSelectedAnswer(null); // 選択された答えもリセット
+    setTextAnswer(''); // 自由入力欄もリセット
     const loadQuestions = async () => {
       if (mode === "mistake") {
         const storedQuestions = await AsyncStorage.getItem('incorrectQuestions');
@@ -146,6 +148,15 @@ const Questions = ({ route, navigation }) => {
       return;
     }
     setCurrentQuestionIndex(currentQuestionIndex + 1);
+    setTextAnswer('');
+  };
+
+  const handleTextSubmit = (question) => {
+    const trimmed = textAnswer.trim();
+    if (!trimmed) {
+      return;
+    }
+    handleAnswerSelection(trimmed, question);
   };
 
   if (questions.length === 0) {
@@ -161,17 +172,36 @@ const Questions = ({ route, navigation }) => {
       <ScrollView style={styles.container}>
       <View style={styles.container}>
         <Text style={styles.questionText}>{questions[currentQuestionIndex].question}</Text>
-        {questions[currentQuestionIndex].options.map((option, index) => (
-          <Pressable
-          key={index}
-          style={styles.optionButton}
-          onPress={() => handleAnswerSelection(option, questions[currentQuestionIndex])}
-        >
-          <View style={styles.optionBox}>
-            <Text style={styles.optionText}>{option}</Text>
+        {questions[currentQuestionIndex].options && questions[currentQuestionIndex].options.length > 0 ? (
+          questions[currentQuestionIndex].options.map((option, index) => (
+            <Pressable
+            key={index}
+            style={styles.optionButton}
+            onPress={() => handleAnswerSelection(option, questions[currentQuestionIndex])}
+          >
+            <View style={styles.optionBox}>
+              <Text style={styles.optionText}>{option}</Text>
+            </View>
+            </Pressable>
+          ))
+        ) : (
+          <View style={styles.textAnswerContainer}>
+            <TextInput
+              style={styles.textInput}
+              value={textAnswer}
+              onChangeText={setTextAnswer}
+              placeholder="答えを入力してください"
+              returnKeyType="done"
+              onSubmitEditing={() => handleTextSubmit(questions[currentQuestionIndex])}
+            />
+            <Pressable
+              style={styles.submitButton}
+              onPress={() => handleTextSubmit(questions[currentQuestionIndex])}
+            >
+              <Text style={styles.submitButtonText}>回答する</Text>
+            </Pressable>
           </View>
-          </Pressable>
-        ))}
+        )}
          {/* <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
             <Text style={styles.nextButtonText}>次へ</Text>
           </TouchableOpacity> */}
@@ -222,6 +252,29 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     fontSize: 20,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  textAnswerContainer: {
+    marginTop: 10,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: "#1565C0",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 18,
+    marginBottom: 10,
+    backgroundColor: "#fff",
+  },
+  submitButton: {
+    backgroundColor: "#1565C0",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  submitButtonText: {
+    fontSize: 18,
     fontWeight: "bold",
     color: "#fff",
   },
