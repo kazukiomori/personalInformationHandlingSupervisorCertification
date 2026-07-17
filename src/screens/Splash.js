@@ -1,24 +1,33 @@
 import { Pressable, StyleSheet, Text, View, Alert } from 'react-native'
-import React from 'react'
+import React, { useState } from 'react'
 import tw from 'twrnc';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CATEGORIES, ALL_CATEGORY, filterByCategory } from '../config/question';
 
 const Splash = ({ navigation }) => {
+  const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
+
   const startNormalQuiz = () => {
-    navigation.navigate("Questions", { mode: "normal" });
+    navigation.navigate("Questions", { mode: "normal", category: selectedCategory });
   };
 
   const startMistakeQuiz = async () => {
     try {
       const storedQuestions = await AsyncStorage.getItem('incorrectQuestions');
       const incorrectQuestions = storedQuestions ? JSON.parse(storedQuestions) : [];
+      const targetQuestions = filterByCategory(incorrectQuestions, selectedCategory);
 
-      if (incorrectQuestions.length === 0) {
-        Alert.alert("お知らせ", "ミスした問題はありません");
+      if (targetQuestions.length === 0) {
+        Alert.alert(
+          "お知らせ",
+          selectedCategory === ALL_CATEGORY
+            ? "ミスした問題はありません"
+            : `「${selectedCategory}」でミスした問題はありません`
+        );
         return;
       }
-      
-      navigation.navigate("Questions", { mode: "mistake" });
+
+      navigation.navigate("Questions", { mode: "mistake", category: selectedCategory });
     } catch (error) {
       console.error("ミス問題の取得に失敗しました:", error);
     }
@@ -30,6 +39,24 @@ const Splash = ({ navigation }) => {
       <View style={styles.headerContainer}>
         <Text style={styles.appTitle}>問題演習アプリ</Text>
         {/* <Text style={styles.appSubtitle}>個人情報取扱主任者認定制度</Text> */}
+      </View>
+
+      {/* Category Selector */}
+      <View style={styles.categoryContainer}>
+        {CATEGORIES.map((category) => {
+          const isSelected = category === selectedCategory;
+          return (
+            <Pressable
+              key={category}
+              style={[styles.categoryChip, isSelected && styles.categoryChipSelected]}
+              onPress={() => setSelectedCategory(category)}
+            >
+              <Text style={[styles.categoryChipText, isSelected && styles.categoryChipTextSelected]}>
+                {category}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {/* Questions Buttons */}
@@ -90,5 +117,33 @@ const styles = StyleSheet.create({
   levelText: {
     fontSize: 16,
     fontWeight: "bold",
-  }
+  },
+  categoryContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 20,
+    paddingHorizontal: 10,
+  },
+  categoryChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#fff",
+  },
+  categoryChipSelected: {
+    backgroundColor: "#1565C0",
+    borderColor: "#1565C0",
+  },
+  categoryChipText: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#1565C0",
+  },
+  categoryChipTextSelected: {
+    color: "#fff",
+  },
 })

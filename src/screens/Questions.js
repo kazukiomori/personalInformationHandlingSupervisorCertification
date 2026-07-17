@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Pressable, TextInput } from 'react-native'
 import React, { useState , useEffect} from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { questions as allQuestions } from "../config/question"; // 全ての問題を読み込む
+import { questions as allQuestions, ALL_CATEGORY, filterByCategory } from "../config/question"; // 全ての問題を読み込む
 import AppBannerAd from "../components/AppBannerAd";
 
 const Questions = ({ route, navigation }) => {
@@ -13,7 +13,7 @@ const Questions = ({ route, navigation }) => {
   const [incorrectQuestions, setIncorrectQuestions] = useState([]);
   const [isAnswered, setIsAnswered] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false);
-  const { mode } = route.params; // "normal" または "mistake"
+  const { mode, category = ALL_CATEGORY } = route.params; // mode: "normal" または "mistake"
   const [questions, setQuestions] = useState([]);
 
   useEffect(() => {
@@ -25,13 +25,13 @@ const Questions = ({ route, navigation }) => {
       if (mode === "mistake") {
         const storedQuestions = await AsyncStorage.getItem('incorrectQuestions');
         const incorrectQuestions = storedQuestions ? JSON.parse(storedQuestions) : [];
-        setQuestions(incorrectQuestions);
+        setQuestions(filterByCategory(incorrectQuestions, category));
       } else {
-        setQuestions(allQuestions);
+        setQuestions(filterByCategory(allQuestions, category));
       }
     };
     loadQuestions();
-  }, [mode]);
+  }, [mode, category]);
 
   useEffect(() => {
     // 🔹 answeredQuestions が更新されたら非同期で不揮発ストレージに保存
@@ -161,6 +161,9 @@ const Questions = ({ route, navigation }) => {
     <>
       <ScrollView style={styles.container}>
       <View style={styles.container}>
+        {category !== ALL_CATEGORY && (
+          <Text style={styles.categoryBadge}>{category}</Text>
+        )}
         <Text style={styles.questionText}>{currentQuestion.question}</Text>
         {currentQuestion.options && currentQuestion.options.length > 0 ? (
           currentQuestion.options.map((option, index) => {
@@ -247,6 +250,17 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: "justify",
     color: "#333",
+  },
+  categoryBadge: {
+    alignSelf: "flex-start",
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#1565C0",
+    backgroundColor: "#E3F2FD",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    marginBottom: 10,
   },
   optionsContainer: {
     marginTop: 10,

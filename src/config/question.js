@@ -1608,3 +1608,13 @@ export const questions = [
   explanation: "個人情報保護委員会の委員長及び委員が独立してその職権を行うという原則を「職権行使の独立性」という(第133条)。",
 },
 ]
+
+export const ALL_CATEGORY = "すべて";
+export const CATEGORIES = [ALL_CATEGORY, "5択", "○×", "記述"];
+
+export const filterByCategory = (list, category) => {
+  if (!category || category === ALL_CATEGORY) {
+    return list;
+  }
+  return list.filter(q => q.category === category);
+};
