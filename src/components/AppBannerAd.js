@@ -13,6 +13,8 @@ const AppBannerAd = () => {
         requestOptions={{
           requestNonPersonalizedAdsOnly: true,
         }}
+        onAdLoaded={() => console.log('[AppBannerAd] loaded')}
+        onAdFailedToLoad={(error) => console.log('[AppBannerAd] failed to load', error)}
       />
     </View>
   );

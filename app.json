@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -20,6 +20,7 @@
       }
     },
     "android": {
+      "package": "com.kazuki.personalInformationHandlingSupervisorCertification",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -37,10 +38,19 @@
       [
         "react-native-google-mobile-ads",
         {
-          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
-          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+          "androidAppId": "ca-app-pub-9554476195266174~8281064241",
+          "iosAppId": "ca-app-pub-9554476195266174~2235440771"
         }
-      ]
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
+      "./plugins/withGoogleMobileAdsVersion.js"
     ]
   }
 }

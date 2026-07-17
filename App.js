@@ -5,7 +5,10 @@ import AppNavigator from "./src/navigation/AppNavigator";
 
 export default function App() {
   useEffect(() => {
-    mobileAds().initialize();
+    mobileAds()
+      .initialize()
+      .then((adapterStatuses) => console.log('[AdMob] initialized', adapterStatuses))
+      .catch((error) => console.log('[AdMob] initialize failed', error));
   }, []);
 
   return <AppNavigator />;

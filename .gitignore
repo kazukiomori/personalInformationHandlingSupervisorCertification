@@ -16,6 +16,8 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+/android
+/ios
 
 # Metro
 .metro-health-check*
@@ -31,6 +33,9 @@ yarn-error.*
 
 # local env files
 .env*.local
+
+# local signing credentials (dev keystore)
+credentials.json
 
 # typescript
 *.tsbuildinfo
