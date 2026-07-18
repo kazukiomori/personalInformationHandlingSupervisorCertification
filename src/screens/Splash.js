@@ -4,11 +4,19 @@ import tw from 'twrnc';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CATEGORIES, ALL_CATEGORY, filterByCategory } from '../config/question';
 
+const ALL_SET_SIZE = "all";
+const SET_SIZE_OPTIONS = [10, 20, ALL_SET_SIZE];
+
 const Splash = ({ navigation }) => {
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
+  const [setSize, setSetSize] = useState(ALL_SET_SIZE);
 
   const startNormalQuiz = () => {
-    navigation.navigate("Questions", { mode: "normal", category: selectedCategory });
+    navigation.navigate("Questions", {
+      mode: "normal",
+      category: selectedCategory,
+      setSize: setSize === ALL_SET_SIZE ? null : setSize,
+    });
   };
 
   const startMistakeQuiz = async () => {
@@ -53,6 +61,26 @@ const Splash = ({ navigation }) => {
             >
               <Text style={[styles.categoryChipText, isSelected && styles.categoryChipTextSelected]}>
                 {category}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Set Size Selector (通常モードの1回あたりの出題数。ミス問題モードには適用しない) */}
+      <Text style={styles.sectionLabel}>出題数(通常モード)</Text>
+      <View style={styles.categoryContainer}>
+        {SET_SIZE_OPTIONS.map((size) => {
+          const isSelected = size === setSize;
+          const label = size === ALL_SET_SIZE ? "すべて" : `${size}問`;
+          return (
+            <Pressable
+              key={size}
+              style={[styles.categoryChip, isSelected && styles.categoryChipSelected]}
+              onPress={() => setSetSize(size)}
+            >
+              <Text style={[styles.categoryChipText, isSelected && styles.categoryChipTextSelected]}>
+                {label}
               </Text>
             </Pressable>
           );
@@ -145,5 +173,12 @@ const styles = StyleSheet.create({
   },
   categoryChipTextSelected: {
     color: "#fff",
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 8,
+    opacity: 0.9,
   },
 })

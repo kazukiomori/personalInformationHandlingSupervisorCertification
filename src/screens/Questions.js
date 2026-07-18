@@ -13,7 +13,7 @@ const Questions = ({ route, navigation }) => {
   const [incorrectQuestions, setIncorrectQuestions] = useState([]);
   const [isAnswered, setIsAnswered] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false);
-  const { mode, category = ALL_CATEGORY } = route.params; // mode: "normal" または "mistake"
+  const { mode, category = ALL_CATEGORY, setSize = null, setIndex = 0 } = route.params; // mode: "normal" または "mistake"
   const [questions, setQuestions] = useState([]);
 
   useEffect(() => {
@@ -27,11 +27,17 @@ const Questions = ({ route, navigation }) => {
         const incorrectQuestions = storedQuestions ? JSON.parse(storedQuestions) : [];
         setQuestions(filterByCategory(incorrectQuestions, category));
       } else {
-        setQuestions(filterByCategory(allQuestions, category));
+        const filtered = filterByCategory(allQuestions, category);
+        if (setSize) {
+          const start = setIndex * setSize;
+          setQuestions(filtered.slice(start, start + setSize));
+        } else {
+          setQuestions(filtered);
+        }
       }
     };
     loadQuestions();
-  }, [mode, category]);
+  }, [mode, category, setSize, setIndex]);
 
   useEffect(() => {
     // 🔹 answeredQuestions が更新されたら非同期で不揮発ストレージに保存
