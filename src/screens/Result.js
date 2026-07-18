@@ -5,10 +5,13 @@ import Text from '../components/AppText';
 import AppBannerAd from "../components/AppBannerAd";
 
 const Result = ({ route, navigation }) => {
-  const { correctAnswersCount, answeredQuestions } = route.params;
+  const { correctAnswersCount, answeredQuestions, totalCount, passRate } = route.params;
 
-  const totalQuestions = answeredQuestions.length;
-  const correctRate = Math.round((correctAnswersCount / totalQuestions) * 100);
+  const totalQuestions = totalCount ?? answeredQuestions.length;
+  const unansweredCount = totalQuestions - answeredQuestions.length;
+  const correctRate = totalQuestions > 0 ? Math.round((correctAnswersCount / totalQuestions) * 100) : 0;
+  const isMockExam = passRate !== undefined;
+  const isPassing = isMockExam && correctRate >= passRate;
 
   const gotoSplash = () => {
     navigation.popToTop();
@@ -18,13 +21,25 @@ const Result = ({ route, navigation }) => {
     <SafeAreaView style={styles.safeContainer}>
       <ScrollView contentContainerStyle={styles.scrollContainer} style={styles.scrollView}>
       <View style={styles.headerContainer}>
-        <Text style={styles.title}>クイズ結果</Text>
+        <Text style={styles.title}>{isMockExam ? '模擬試験 結果' : 'クイズ結果'}</Text>
       </View>
 
       <View style={styles.scoreContainer}>
         <Text style={styles.scoreText}>{totalQuestions}問中 {correctAnswersCount}問正解</Text>
         <Text style={styles.rateText}>正答率: {correctRate}%</Text>
+        {unansweredCount > 0 && (
+          <Text style={styles.unansweredText}>(時間切れによる未解答: {unansweredCount}問)</Text>
+        )}
       </View>
+
+      {isMockExam && (
+        <View style={[styles.passBadge, isPassing ? styles.passBadgeSuccess : styles.passBadgeFail]}>
+          <Text style={styles.passBadgeText}>
+            {isPassing ? '合格圏内です 🎉' : '合格ラインに届いていません'}
+          </Text>
+          <Text style={styles.passBadgeSubText}>合格ライン: 正答率{passRate}%以上</Text>
+        </View>
+      )}
 
       <Text style={styles.subTitle}>解答詳細:</Text>
       {answeredQuestions.map((answeredQuestion, index) => {
@@ -91,6 +106,37 @@ const styles = StyleSheet.create({
   rateText: {
     fontSize: 18,
     color: '#fff',
+  },
+  unansweredText: {
+    fontSize: 13,
+    color: '#e3f2fd',
+    marginTop: 4,
+  },
+  passBadge: {
+    width: '90%',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 2,
+  },
+  passBadgeSuccess: {
+    backgroundColor: '#d4edda',
+    borderColor: '#28a745',
+  },
+  passBadgeFail: {
+    backgroundColor: '#f8d7da',
+    borderColor: '#dc3545',
+  },
+  passBadgeText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  passBadgeSubText: {
+    fontSize: 14,
+    color: '#555',
+    marginTop: 4,
   },
   subTitle: {
     fontSize: 20,

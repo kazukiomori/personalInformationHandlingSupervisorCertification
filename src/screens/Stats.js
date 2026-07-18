@@ -13,6 +13,12 @@ import {
 
 const CALENDAR_DAYS = 28; // 4週間分
 const TREND_SESSION_COUNT = 14; // 正答率推移グラフに表示する直近セッション数
+const MODE_LABELS = {
+  normal: '通常',
+  review: '復習',
+  bookmark: '要復習',
+  mockExam: '模擬試験',
+};
 const WEAK_THRESHOLD = 60; // これを下回ると弱点として強調表示する正答率(%)
 
 const buildCalendarDays = (studiedDates, now = new Date()) => {
@@ -123,11 +129,12 @@ const Stats = () => {
       ) : (
         historySessions.map((s, index) => {
           const rate = s.totalCount > 0 ? Math.round((s.correctCount / s.totalCount) * 100) : 0;
+          const modeLabel = MODE_LABELS[s.mode] || '通常';
           return (
             <View key={index} style={styles.historyRow}>
               <Text style={styles.historyDate}>{s.date}</Text>
               <Text style={styles.historyDetail}>
-                {s.mode === 'review' ? '復習' : '通常'} ・ {s.category}
+                {modeLabel} ・ {s.category}
               </Text>
               <Text style={styles.historyScore}>{s.correctCount}/{s.totalCount}問({rate}%)</Text>
             </View>

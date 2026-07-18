@@ -3,10 +3,11 @@ import React, { useState, useEffect, useRef } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Text from '../components/AppText';
-import { questions as allQuestions, ALL_CATEGORY, filterByCategory } from "../config/question"; // 全ての問題を読み込む
+import { questions as allQuestions, ALL_CATEGORY, CATEGORIES, filterByCategory } from "../config/question"; // 全ての問題を読み込む
 import { SRS_STORAGE_KEY, scheduleReview, isDue } from "../utils/spacedRepetition";
 import { SESSION_HISTORY_KEY, MAX_HISTORY_ENTRIES, createSessionRecord } from "../utils/sessionHistory";
 import { BOOKMARKS_STORAGE_KEY, toggleBookmark } from "../utils/bookmarks";
+import { MOCK_EXAM_QUESTION_COUNT, MOCK_EXAM_TIME_LIMIT_SECONDS, MOCK_EXAM_PASS_RATE, allocateByRatio, formatTime } from "../utils/mockExam";
 import AppBannerAd from "../components/AppBannerAd";
 
 // Fisher-Yatesで配列の並び順をシャッフルする(元の配列は変更しない)
@@ -43,16 +44,21 @@ const Questions = ({ route, navigation }) => {
   const [answeredQuestions, setAnsweredQuestions] = useState([]);
   const [isAnswered, setIsAnswered] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false);
-  const { mode, category = ALL_CATEGORY, setSize = null } = route.params; // mode: "normal" / "review"(間隔反復での復習) / "bookmark"(要復習ブックマークのみ)
+  const { mode, category = ALL_CATEGORY, setSize = null } = route.params; // mode: "normal" / "review"(間隔反復) / "bookmark"(要復習) / "mockExam"(模擬試験)
   const [questions, setQuestions] = useState([]);
   const [bookmarkedIds, setBookmarkedIds] = useState([]);
+  const [timeLeft, setTimeLeft] = useState(MOCK_EXAM_TIME_LIMIT_SECONDS);
   const srsDataRef = useRef({}); // 問題id単位の間隔反復スケジュール(セッション中はメモリ上で保持し、都度AsyncStorageへ反映)
+  const examFinishedRef = useRef(false); // 模擬試験が終了処理済みかどうか(タイムアウトと通常終了の二重実行を防ぐ)
+  const answerLockRef = useRef(false); // 模擬試験は自動で次へ進むため、連打による二重回答を防ぐ
 
   useEffect(() => {
     setCurrentQuestionIndex(0); // 問題のインデックスをリセット
     setSelectedAnswer(null); // 選択された答えもリセット
     setTextAnswer(''); // 自由入力欄もリセット
     setIsAnswered(false); // 解答状態もリセット
+    examFinishedRef.current = false;
+    setTimeLeft(MOCK_EXAM_TIME_LIMIT_SECONDS);
     const loadQuestions = async () => {
       const [storedSrs, storedBookmarks] = await Promise.all([
         AsyncStorage.getItem(SRS_STORAGE_KEY),
@@ -71,6 +77,18 @@ const Questions = ({ route, navigation }) => {
         const bookmarkedQuestions = allQuestions.filter(q => bookmarks.includes(q.id));
         const shuffled = shuffleArray(filterByCategory(bookmarkedQuestions, category));
         setQuestions(shuffleQuestionOptions(shuffled));
+      } else if (mode === "mockExam") {
+        // 実際の出題比率(カテゴリ構成比)を保ったまま、目標問題数だけ層化抽出する
+        const realCategories = CATEGORIES.filter(c => c !== ALL_CATEGORY);
+        const countsByCategory = {};
+        realCategories.forEach(cat => {
+          countsByCategory[cat] = allQuestions.filter(q => q.category === cat).length;
+        });
+        const allocation = allocateByRatio(countsByCategory, MOCK_EXAM_QUESTION_COUNT);
+        const picked = realCategories.flatMap(cat => (
+          shuffleArray(allQuestions.filter(q => q.category === cat)).slice(0, allocation[cat])
+        ));
+        setQuestions(shuffleQuestionOptions(shuffleArray(picked)));
       } else {
         const shuffled = shuffleArray(filterByCategory(allQuestions, category));
         const sliced = setSize ? shuffled.slice(0, setSize) : shuffled;
@@ -80,6 +98,25 @@ const Questions = ({ route, navigation }) => {
     loadQuestions();
   }, [mode, category, setSize]);
 
+  // 模擬試験モードの制限時間カウントダウン。0になったらその時点で強制終了する。
+  useEffect(() => {
+    if (mode !== "mockExam" || questions.length === 0 || examFinishedRef.current) return;
+
+    if (timeLeft <= 0) {
+      examFinishedRef.current = true;
+      finishSession(answeredQuestions, correctAnswersCount);
+      return;
+    }
+
+    const timer = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [mode, questions.length, timeLeft]);
+
+  // 問題が切り替わったら、模擬試験の連打防止ロックを解除する
+  useEffect(() => {
+    answerLockRef.current = false;
+  }, [currentQuestionIndex]);
+
   // 「要復習」ブックマークの付け外し(ミスとは独立した、ユーザーが手動で管理する印)
   const handleToggleBookmark = (questionId) => {
     const updated = toggleBookmark(bookmarkedIds, questionId);
@@ -88,16 +125,33 @@ const Questions = ({ route, navigation }) => {
       .catch(error => console.error('ブックマークの保存に失敗しました:', error));
   };
 
+  // セッション(または模擬試験)を終了し、学習履歴を保存してResult画面へ遷移する。
+  // 模擬試験は出題数を固定(MOCK_EXAM_QUESTION_COUNT)で評価するため、時間切れで未解答が残っていても
+  // 分母はその固定値のままにし、合格ラインの判定に反映させる。
+  const finishSession = (finalAnsweredQuestions, finalCorrectCount) => {
+    examFinishedRef.current = true;
+    const totalCount = mode === "mockExam" ? MOCK_EXAM_QUESTION_COUNT : questions.length;
+
+    saveSessionRecord({ mode, category, correctCount: finalCorrectCount, totalCount, answeredQuestions: finalAnsweredQuestions })
+      .catch(error => console.error('学習履歴の保存に失敗しました:', error));
+
+    navigation.navigate('Result', {
+      correctAnswersCount: finalCorrectCount,
+      answeredQuestions: finalAnsweredQuestions,
+      totalCount,
+      ...(mode === "mockExam" ? { passRate: MOCK_EXAM_PASS_RATE } : {}),
+    });
+  };
+
   // 選択肢をタップしたときの処理
   const handleAnswerSelection = (answer, question) => {
     if (isAnswered) return; // 解答済みなら二重回答を防ぐ
-
-    setSelectedAnswer(answer);
-    const isCorrect = answer === question.correctAnswer;
-
-    if (isCorrect) {
-      setCorrectAnswersCount(prev => prev + 1);
+    if (mode === "mockExam") {
+      if (answerLockRef.current) return; // 自動で次へ進むため、連打による二重回答を防ぐ
+      answerLockRef.current = true;
     }
+
+    const isCorrect = answer === question.correctAnswer;
 
     const answeredQuestion = {
       question: question.question,
@@ -106,7 +160,11 @@ const Questions = ({ route, navigation }) => {
       category: question.category,
     };
 
-    setAnsweredQuestions(prev => [...prev, answeredQuestion]);
+    const updatedAnsweredQuestions = [...answeredQuestions, answeredQuestion];
+    const updatedCorrectCount = correctAnswersCount + (isCorrect ? 1 : 0);
+
+    setAnsweredQuestions(updatedAnsweredQuestions);
+    setCorrectAnswersCount(updatedCorrectCount);
 
     const updatedSrsData = {
       ...srsDataRef.current,
@@ -116,6 +174,20 @@ const Questions = ({ route, navigation }) => {
     AsyncStorage.setItem(SRS_STORAGE_KEY, JSON.stringify(updatedSrsData))
       .catch(error => console.error('復習スケジュールの保存に失敗しました:', error));
 
+    if (mode === "mockExam") {
+      // 本番想定: 正誤フィードバックを見せず、即座に次の問題または結果画面へ進む
+      const isLast = currentQuestionIndex === questions.length - 1;
+      setSelectedAnswer(null);
+      setTextAnswer('');
+      if (isLast) {
+        finishSession(updatedAnsweredQuestions, updatedCorrectCount);
+      } else {
+        setCurrentQuestionIndex(prev => prev + 1);
+      }
+      return;
+    }
+
+    setSelectedAnswer(answer);
     setLastAnswerCorrect(isCorrect);
     setIsAnswered(true);
   };
@@ -124,13 +196,7 @@ const Questions = ({ route, navigation }) => {
     const isLast = currentQuestionIndex === questions.length - 1;
 
     if (isLast) {
-      saveSessionRecord({ mode, category, correctCount: correctAnswersCount, totalCount: questions.length, answeredQuestions })
-        .catch(error => console.error('学習履歴の保存に失敗しました:', error));
-
-      navigation.navigate('Result', {
-        correctAnswersCount,
-        answeredQuestions,
-      });
+      finishSession(answeredQuestions, correctAnswersCount);
       return;
     }
 
@@ -163,6 +229,14 @@ const Questions = ({ route, navigation }) => {
     <>
       <ScrollView style={styles.container}>
       <View style={styles.container}>
+        {mode === "mockExam" && (
+          <View style={styles.examHeaderRow}>
+            <Text style={styles.examBadge}>📝 模擬試験</Text>
+            <Text style={[styles.examTimer, timeLeft <= 60 && styles.examTimerWarning]}>
+              ⏱ {formatTime(timeLeft)}
+            </Text>
+          </View>
+        )}
         <View style={styles.progressContainer}>
           <View style={styles.progressBarTrack}>
             <View
@@ -295,6 +369,29 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 10,
+  },
+  examHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#1565C0",
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  examBadge: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  examTimer: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  examTimerWarning: {
+    color: "#FFCDD2",
   },
   bookmarkButton: {
     flexDirection: "row",

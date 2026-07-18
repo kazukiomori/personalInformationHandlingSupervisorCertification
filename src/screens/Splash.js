@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CATEGORIES, ALL_CATEGORY, filterByCategory, questions as allQuestions } from '../config/question';
 import { SRS_STORAGE_KEY, isDue } from '../utils/spacedRepetition';
 import { BOOKMARKS_STORAGE_KEY } from '../utils/bookmarks';
+import { MOCK_EXAM_QUESTION_COUNT, MOCK_EXAM_TIME_LIMIT_SECONDS, MOCK_EXAM_PASS_RATE } from '../utils/mockExam';
 
 const ALL_SET_SIZE = "all";
 const SET_SIZE_OPTIONS = [10, 20, ALL_SET_SIZE];
@@ -91,6 +92,17 @@ const Splash = ({ navigation }) => {
     }
   };
 
+  const startMockExam = () => {
+    Alert.alert(
+      "模擬試験(本番想定)",
+      `全${MOCK_EXAM_QUESTION_COUNT}問(実際の出題比率で構成)・制限時間${MOCK_EXAM_TIME_LIMIT_SECONDS / 60}分で行います。\n回答中は正誤を表示せず、終了後にまとめて結果と合否の目安(合格ライン正答率${MOCK_EXAM_PASS_RATE}%)を表示します。\nカテゴリ・出題数の指定はこのモードには適用されません。`,
+      [
+        { text: "キャンセル", style: "cancel" },
+        { text: "開始する", onPress: () => navigation.navigate("Questions", { mode: "mockExam" }) },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       {/* Header Section */}
@@ -149,6 +161,13 @@ const Splash = ({ navigation }) => {
           <Text style={[styles.levelText, { color: "#FFA000" }]}>⭐要復習{"\n"}({bookmarkCount}問)</Text>
         </Pressable>
       </View>
+
+      <Pressable style={styles.mockExamCard} onPress={startMockExam}>
+        <Text style={styles.mockExamTitle}>📝 模擬試験(本番想定)</Text>
+        <Text style={styles.mockExamSubtitle}>
+          全{MOCK_EXAM_QUESTION_COUNT}問・制限時間{MOCK_EXAM_TIME_LIMIT_SECONDS / 60}分・合格ライン{MOCK_EXAM_PASS_RATE}%
+        </Text>
+      </Pressable>
 
       <Pressable style={styles.statsLink} onPress={() => navigation.navigate("Stats")}>
         <Text style={styles.statsLinkText}>📊 学習履歴・進捗を見る</Text>
@@ -237,6 +256,25 @@ const styles = StyleSheet.create({
     color: "#fff",
     marginBottom: 8,
     opacity: 0.9,
+  },
+  mockExamCard: {
+    marginTop: 20,
+    width: '85%',
+    backgroundColor: '#263238',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  mockExamTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  mockExamSubtitle: {
+    fontSize: 12,
+    color: '#CFD8DC',
   },
   statsLink: {
     marginTop: 24,
