@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { questions as allQuestions, ALL_CATEGORY, filterByCategory } from "../config/question"; // 全ての問題を読み込む
 import { SRS_STORAGE_KEY, scheduleReview, isDue } from "../utils/spacedRepetition";
+import { SESSION_HISTORY_KEY, MAX_HISTORY_ENTRIES, createSessionRecord } from "../utils/sessionHistory";
 import AppBannerAd from "../components/AppBannerAd";
 
 // Fisher-Yatesで配列の並び順をシャッフルする(元の配列は変更しない)
@@ -21,6 +22,15 @@ const shuffleQuestionOptions = (list) => list.map(q => (
     ? { ...q, options: shuffleArray(q.options) }
     : q
 ));
+
+// セッション終了時に学習履歴を1件追加保存する(上限件数を超えた古い記録は切り捨てる)
+const saveSessionRecord = async ({ mode, category, correctCount, totalCount, answeredQuestions }) => {
+  const record = createSessionRecord({ mode, category, correctCount, totalCount, answeredQuestions });
+  const stored = await AsyncStorage.getItem(SESSION_HISTORY_KEY);
+  const history = stored ? JSON.parse(stored) : [];
+  const updated = [...history, record].slice(-MAX_HISTORY_ENTRIES);
+  await AsyncStorage.setItem(SESSION_HISTORY_KEY, JSON.stringify(updated));
+};
 
 const Questions = ({ route, navigation }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -72,6 +82,7 @@ const Questions = ({ route, navigation }) => {
       question: question.question,
       selectedAnswer: answer,
       correctAnswer: question.correctAnswer,
+      category: question.category,
     };
 
     setAnsweredQuestions(prev => [...prev, answeredQuestion]);
@@ -92,6 +103,9 @@ const Questions = ({ route, navigation }) => {
     const isLast = currentQuestionIndex === questions.length - 1;
 
     if (isLast) {
+      saveSessionRecord({ mode, category, correctCount: correctAnswersCount, totalCount: questions.length, answeredQuestions })
+        .catch(error => console.error('学習履歴の保存に失敗しました:', error));
+
       navigation.navigate('Result', {
         correctAnswersCount,
         answeredQuestions,

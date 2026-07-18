@@ -114,6 +114,10 @@ const Splash = ({ navigation }) => {
           <Text style={[styles.levelText, { color: "#1E90FF" }]}>復習する{"\n"}({dueCount}問)</Text>
         </Pressable>
       </View>
+
+      <Pressable style={styles.statsLink} onPress={() => navigation.navigate("Stats")}>
+        <Text style={styles.statsLinkText}>📊 学習履歴・進捗を見る</Text>
+      </Pressable>
     </View>
   )
 }
@@ -198,5 +202,16 @@ const styles = StyleSheet.create({
     color: "#fff",
     marginBottom: 8,
     opacity: 0.9,
+  },
+  statsLink: {
+    marginTop: 24,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  statsLinkText: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#fff",
+    textDecorationLine: "underline",
   },
 })
