@@ -161,6 +161,19 @@ const Questions = ({ route, navigation }) => {
     <>
       <ScrollView style={styles.container}>
       <View style={styles.container}>
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBarTrack}>
+            <View
+              style={[
+                styles.progressBarFill,
+                { width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {currentQuestionIndex + 1} / {questions.length}
+          </Text>
+        </View>
         {category !== ALL_CATEGORY && (
           <Text style={styles.categoryBadge}>{category}</Text>
         )}
@@ -261,6 +274,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 12,
     marginBottom: 10,
+  },
+  progressContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  progressBarTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#E3F2FD",
+    overflow: "hidden",
+    marginRight: 10,
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 4,
+    backgroundColor: "#1565C0",
+  },
+  progressText: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#1565C0",
   },
   optionsContainer: {
     marginTop: 10,
