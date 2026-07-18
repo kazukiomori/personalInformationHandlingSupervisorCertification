@@ -5,8 +5,8 @@ import { questions as allQuestions, ALL_CATEGORY, filterByCategory } from "../co
 import { SRS_STORAGE_KEY, scheduleReview, isDue } from "../utils/spacedRepetition";
 import AppBannerAd from "../components/AppBannerAd";
 
-// Fisher-Yatesで問題の並び順をシャッフルする(元の配列は変更しない)
-const shuffleQuestions = (list) => {
+// Fisher-Yatesで配列の並び順をシャッフルする(元の配列は変更しない)
+const shuffleArray = (list) => {
   const shuffled = [...list];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -14,6 +14,13 @@ const shuffleQuestions = (list) => {
   }
   return shuffled;
 };
+
+// 各問題のoptionsも独立してシャッフルした新しいオブジェクトを返す(question.jsの元配列は変更しない)
+const shuffleQuestionOptions = (list) => list.map(q => (
+  q.options && q.options.length > 0
+    ? { ...q, options: shuffleArray(q.options) }
+    : q
+));
 
 const Questions = ({ route, navigation }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -39,10 +46,12 @@ const Questions = ({ route, navigation }) => {
 
       if (mode === "review") {
         const dueQuestions = allQuestions.filter(q => isDue(srsData[q.id]));
-        setQuestions(shuffleQuestions(filterByCategory(dueQuestions, category)));
+        const shuffled = shuffleArray(filterByCategory(dueQuestions, category));
+        setQuestions(shuffleQuestionOptions(shuffled));
       } else {
-        const shuffled = shuffleQuestions(filterByCategory(allQuestions, category));
-        setQuestions(setSize ? shuffled.slice(0, setSize) : shuffled);
+        const shuffled = shuffleArray(filterByCategory(allQuestions, category));
+        const sliced = setSize ? shuffled.slice(0, setSize) : shuffled;
+        setQuestions(shuffleQuestionOptions(sliced));
       }
     };
     loadQuestions();
