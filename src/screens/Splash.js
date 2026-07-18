@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View, Alert } from 'react-native'
+import { Pressable, StyleSheet, View, Alert } from 'react-native'
 import React, { useState, useCallback } from 'react'
 import { useFocusEffect } from '@react-navigation/native';
+import Text from '../components/AppText';
 import tw from 'twrnc';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CATEGORIES, ALL_CATEGORY, filterByCategory, questions as allQuestions } from '../config/question';

@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Pressable, TextInput } from 'react-native'
+import { StyleSheet, View, ScrollView, TouchableOpacity, Pressable, TextInput } from 'react-native'
 import React, { useState, useEffect, useRef } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Text from '../components/AppText';
 import { questions as allQuestions, ALL_CATEGORY, filterByCategory } from "../config/question"; // 全ての問題を読み込む
 import { SRS_STORAGE_KEY, scheduleReview, isDue } from "../utils/spacedRepetition";
 import { SESSION_HISTORY_KEY, MAX_HISTORY_ENTRIES, createSessionRecord } from "../utils/sessionHistory";

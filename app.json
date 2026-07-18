@@ -50,7 +50,8 @@
           }
         }
       ],
-      "./plugins/withKotlinVersion.js"
+      "./plugins/withKotlinVersion.js",
+      "expo-font"
     ]
   }
 }

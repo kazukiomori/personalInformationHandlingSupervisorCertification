@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { StyleSheet, View, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
 import React from 'react';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import Text from '../components/AppText';
 import AppBannerAd from "../components/AppBannerAd";
 
 const Result = ({ route, navigation }) => {

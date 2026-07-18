@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View, ScrollView } from 'react-native'
+import { StyleSheet, View, ScrollView } from 'react-native'
 import React, { useState, useCallback } from 'react'
 import { useFocusEffect } from '@react-navigation/native';
+import Text from '../components/AppText';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CATEGORIES, ALL_CATEGORY } from '../config/question';
 import {
