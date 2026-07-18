@@ -6,6 +6,7 @@ import tw from 'twrnc';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CATEGORIES, ALL_CATEGORY, filterByCategory, questions as allQuestions } from '../config/question';
 import { SRS_STORAGE_KEY, isDue } from '../utils/spacedRepetition';
+import { BOOKMARKS_STORAGE_KEY } from '../utils/bookmarks';
 
 const ALL_SET_SIZE = "all";
 const SET_SIZE_OPTIONS = [10, 20, ALL_SET_SIZE];
@@ -14,6 +15,7 @@ const Splash = ({ navigation }) => {
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
   const [setSize, setSetSize] = useState(ALL_SET_SIZE);
   const [dueCount, setDueCount] = useState(0);
+  const [bookmarkCount, setBookmarkCount] = useState(0);
 
   const loadDueQuestions = useCallback(async () => {
     const storedSrs = await AsyncStorage.getItem(SRS_STORAGE_KEY);
@@ -21,15 +23,24 @@ const Splash = ({ navigation }) => {
     return filterByCategory(allQuestions, selectedCategory).filter(q => isDue(srsData[q.id]));
   }, [selectedCategory]);
 
-  // 復習が必要な問題数は、画面に戻ってくるたび(セッション終了後など)に再取得する
+  const loadBookmarkedQuestions = useCallback(async () => {
+    const storedBookmarks = await AsyncStorage.getItem(BOOKMARKS_STORAGE_KEY);
+    const bookmarkedIds = storedBookmarks ? JSON.parse(storedBookmarks) : [];
+    return filterByCategory(allQuestions, selectedCategory).filter(q => bookmarkedIds.includes(q.id));
+  }, [selectedCategory]);
+
+  // 復習が必要な問題数・ブックマーク数は、画面に戻ってくるたび(セッション終了後など)に再取得する
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
       loadDueQuestions().then((due) => {
         if (isActive) setDueCount(due.length);
       });
+      loadBookmarkedQuestions().then((bookmarked) => {
+        if (isActive) setBookmarkCount(bookmarked.length);
+      });
       return () => { isActive = false; };
-    }, [loadDueQuestions])
+    }, [loadDueQuestions, loadBookmarkedQuestions])
   );
 
   const startNormalQuiz = () => {
@@ -57,6 +68,26 @@ const Splash = ({ navigation }) => {
       navigation.navigate("Questions", { mode: "review", category: selectedCategory });
     } catch (error) {
       console.error("復習問題の取得に失敗しました:", error);
+    }
+  };
+
+  const startBookmarkQuiz = async () => {
+    try {
+      const bookmarkedQuestions = await loadBookmarkedQuestions();
+
+      if (bookmarkedQuestions.length === 0) {
+        Alert.alert(
+          "お知らせ",
+          selectedCategory === ALL_CATEGORY
+            ? "「要復習」のブックマークはまだありません"
+            : `「${selectedCategory}」で「要復習」のブックマークはまだありません`
+        );
+        return;
+      }
+
+      navigation.navigate("Questions", { mode: "bookmark", category: selectedCategory });
+    } catch (error) {
+      console.error("ブックマーク問題の取得に失敗しました:", error);
     }
   };
 
@@ -113,6 +144,9 @@ const Splash = ({ navigation }) => {
         </Pressable>
         <Pressable style={styles.levelBox} onPress={startReviewQuiz} >
           <Text style={[styles.levelText, { color: "#1E90FF" }]}>復習する{"\n"}({dueCount}問)</Text>
+        </Pressable>
+        <Pressable style={styles.levelBox} onPress={startBookmarkQuiz} >
+          <Text style={[styles.levelText, { color: "#FFA000" }]}>⭐要復習{"\n"}({bookmarkCount}問)</Text>
         </Pressable>
       </View>
 
