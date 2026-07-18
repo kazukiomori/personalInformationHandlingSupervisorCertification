@@ -4,6 +4,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { questions as allQuestions, ALL_CATEGORY, filterByCategory } from "../config/question"; // 全ての問題を読み込む
 import AppBannerAd from "../components/AppBannerAd";
 
+// Fisher-Yatesで問題の並び順をシャッフルする(元の配列は変更しない)
+const shuffleQuestions = (list) => {
+  const shuffled = [...list];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 const Questions = ({ route, navigation }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -13,7 +23,7 @@ const Questions = ({ route, navigation }) => {
   const [incorrectQuestions, setIncorrectQuestions] = useState([]);
   const [isAnswered, setIsAnswered] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false);
-  const { mode, category = ALL_CATEGORY, setSize = null, setIndex = 0 } = route.params; // mode: "normal" または "mistake"
+  const { mode, category = ALL_CATEGORY, setSize = null } = route.params; // mode: "normal" または "mistake"
   const [questions, setQuestions] = useState([]);
 
   useEffect(() => {
@@ -25,19 +35,14 @@ const Questions = ({ route, navigation }) => {
       if (mode === "mistake") {
         const storedQuestions = await AsyncStorage.getItem('incorrectQuestions');
         const incorrectQuestions = storedQuestions ? JSON.parse(storedQuestions) : [];
-        setQuestions(filterByCategory(incorrectQuestions, category));
+        setQuestions(shuffleQuestions(filterByCategory(incorrectQuestions, category)));
       } else {
-        const filtered = filterByCategory(allQuestions, category);
-        if (setSize) {
-          const start = setIndex * setSize;
-          setQuestions(filtered.slice(start, start + setSize));
-        } else {
-          setQuestions(filtered);
-        }
+        const shuffled = shuffleQuestions(filterByCategory(allQuestions, category));
+        setQuestions(setSize ? shuffled.slice(0, setSize) : shuffled);
       }
     };
     loadQuestions();
-  }, [mode, category, setSize, setIndex]);
+  }, [mode, category, setSize]);
 
   useEffect(() => {
     // 🔹 answeredQuestions が更新されたら非同期で不揮発ストレージに保存
