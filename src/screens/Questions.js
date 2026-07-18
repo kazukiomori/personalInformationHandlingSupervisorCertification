@@ -1,10 +1,12 @@
 import { StyleSheet, View, ScrollView, TouchableOpacity, Pressable, TextInput } from 'react-native'
 import React, { useState, useEffect, useRef } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Icon from 'react-native-vector-icons/FontAwesome';
 import Text from '../components/AppText';
 import { questions as allQuestions, ALL_CATEGORY, filterByCategory } from "../config/question"; // 全ての問題を読み込む
 import { SRS_STORAGE_KEY, scheduleReview, isDue } from "../utils/spacedRepetition";
 import { SESSION_HISTORY_KEY, MAX_HISTORY_ENTRIES, createSessionRecord } from "../utils/sessionHistory";
+import { BOOKMARKS_STORAGE_KEY, toggleBookmark } from "../utils/bookmarks";
 import AppBannerAd from "../components/AppBannerAd";
 
 // Fisher-Yatesで配列の並び順をシャッフルする(元の配列は変更しない)
@@ -41,8 +43,9 @@ const Questions = ({ route, navigation }) => {
   const [answeredQuestions, setAnsweredQuestions] = useState([]);
   const [isAnswered, setIsAnswered] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false);
-  const { mode, category = ALL_CATEGORY, setSize = null } = route.params; // mode: "normal" または "review"(間隔反復での復習)
+  const { mode, category = ALL_CATEGORY, setSize = null } = route.params; // mode: "normal" / "review"(間隔反復での復習) / "bookmark"(要復習ブックマークのみ)
   const [questions, setQuestions] = useState([]);
+  const [bookmarkedIds, setBookmarkedIds] = useState([]);
   const srsDataRef = useRef({}); // 問題id単位の間隔反復スケジュール(セッション中はメモリ上で保持し、都度AsyncStorageへ反映)
 
   useEffect(() => {
@@ -51,13 +54,22 @@ const Questions = ({ route, navigation }) => {
     setTextAnswer(''); // 自由入力欄もリセット
     setIsAnswered(false); // 解答状態もリセット
     const loadQuestions = async () => {
-      const storedSrs = await AsyncStorage.getItem(SRS_STORAGE_KEY);
+      const [storedSrs, storedBookmarks] = await Promise.all([
+        AsyncStorage.getItem(SRS_STORAGE_KEY),
+        AsyncStorage.getItem(BOOKMARKS_STORAGE_KEY),
+      ]);
       const srsData = storedSrs ? JSON.parse(storedSrs) : {};
       srsDataRef.current = srsData;
+      const bookmarks = storedBookmarks ? JSON.parse(storedBookmarks) : [];
+      setBookmarkedIds(bookmarks);
 
       if (mode === "review") {
         const dueQuestions = allQuestions.filter(q => isDue(srsData[q.id]));
         const shuffled = shuffleArray(filterByCategory(dueQuestions, category));
+        setQuestions(shuffleQuestionOptions(shuffled));
+      } else if (mode === "bookmark") {
+        const bookmarkedQuestions = allQuestions.filter(q => bookmarks.includes(q.id));
+        const shuffled = shuffleArray(filterByCategory(bookmarkedQuestions, category));
         setQuestions(shuffleQuestionOptions(shuffled));
       } else {
         const shuffled = shuffleArray(filterByCategory(allQuestions, category));
@@ -67,6 +79,14 @@ const Questions = ({ route, navigation }) => {
     };
     loadQuestions();
   }, [mode, category, setSize]);
+
+  // 「要復習」ブックマークの付け外し(ミスとは独立した、ユーザーが手動で管理する印)
+  const handleToggleBookmark = (questionId) => {
+    const updated = toggleBookmark(bookmarkedIds, questionId);
+    setBookmarkedIds(updated);
+    AsyncStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(updated))
+      .catch(error => console.error('ブックマークの保存に失敗しました:', error));
+  };
 
   // 選択肢をタップしたときの処理
   const handleAnswerSelection = (answer, question) => {
@@ -156,9 +176,25 @@ const Questions = ({ route, navigation }) => {
             {currentQuestionIndex + 1} / {questions.length}
           </Text>
         </View>
-        {category !== ALL_CATEGORY && (
-          <Text style={styles.categoryBadge}>{category}</Text>
-        )}
+        <View style={styles.metaRow}>
+          {category !== ALL_CATEGORY ? (
+            <Text style={styles.categoryBadge}>{category}</Text>
+          ) : (
+            <View />
+          )}
+          <Pressable
+            style={styles.bookmarkButton}
+            onPress={() => handleToggleBookmark(currentQuestion.id)}
+            hitSlop={8}
+          >
+            <Icon
+              name={bookmarkedIds.includes(currentQuestion.id) ? "star" : "star-o"}
+              size={22}
+              color="#FFA000"
+            />
+            <Text style={styles.bookmarkButtonText}>要復習</Text>
+          </Pressable>
+        </View>
         <Text style={styles.questionText}>{currentQuestion.question}</Text>
         {currentQuestion.options && currentQuestion.options.length > 0 ? (
           currentQuestion.options.map((option, index) => {
@@ -175,9 +211,7 @@ const Questions = ({ route, navigation }) => {
                 ]}
                 onPress={() => handleAnswerSelection(option, currentQuestion)}
               >
-                <View style={styles.optionBox}>
-                  <Text style={styles.optionText}>{option}</Text>
-                </View>
+                <Text style={styles.optionText}>{option}</Text>
               </Pressable>
             );
           })
@@ -255,7 +289,24 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,
+  },
+  metaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 10,
+  },
+  bookmarkButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  bookmarkButtonText: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#FFA000",
+    marginLeft: 4,
   },
   progressContainer: {
     flexDirection: "row",
@@ -283,12 +334,14 @@ const styles = StyleSheet.create({
   optionsContainer: {
     marginTop: 10,
   },
-  optionBox: {
+  optionButton: {
     backgroundColor: "#E3F2FD", // 薄い青
     padding: 12,
     marginBottom: 10,
     borderRadius: 8,
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: "transparent", // 正誤表示時に枠線が太さ分だけ食い込まないよう、未回答時から確保しておく
   },
   optionText: {
     fontSize: 20,
@@ -332,14 +385,10 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   optionBoxCorrect: {
-    borderWidth: 2,
     borderColor: "#28a745",
-    borderRadius: 8,
   },
   optionBoxIncorrect: {
-    borderWidth: 2,
     borderColor: "#dc3545",
-    borderRadius: 8,
   },
   feedbackBox: {
     marginTop: 10,
