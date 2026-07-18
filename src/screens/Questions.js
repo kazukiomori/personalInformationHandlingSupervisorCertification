@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Pressable, TextInput } from 'react-native'
-import React, { useState , useEffect} from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { questions as allQuestions, ALL_CATEGORY, filterByCategory } from "../config/question"; // 全ての問題を読み込む
+import { SRS_STORAGE_KEY, scheduleReview, isDue } from "../utils/spacedRepetition";
 import AppBannerAd from "../components/AppBannerAd";
 
 // Fisher-Yatesで問題の並び順をシャッフルする(元の配列は変更しない)
@@ -20,11 +21,11 @@ const Questions = ({ route, navigation }) => {
   const [textAnswer, setTextAnswer] = useState('');
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
   const [answeredQuestions, setAnsweredQuestions] = useState([]);
-  const [incorrectQuestions, setIncorrectQuestions] = useState([]);
   const [isAnswered, setIsAnswered] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false);
-  const { mode, category = ALL_CATEGORY, setSize = null } = route.params; // mode: "normal" または "mistake"
+  const { mode, category = ALL_CATEGORY, setSize = null } = route.params; // mode: "normal" または "review"(間隔反復での復習)
   const [questions, setQuestions] = useState([]);
+  const srsDataRef = useRef({}); // 問題id単位の間隔反復スケジュール(セッション中はメモリ上で保持し、都度AsyncStorageへ反映)
 
   useEffect(() => {
     setCurrentQuestionIndex(0); // 問題のインデックスをリセット
@@ -32,10 +33,13 @@ const Questions = ({ route, navigation }) => {
     setTextAnswer(''); // 自由入力欄もリセット
     setIsAnswered(false); // 解答状態もリセット
     const loadQuestions = async () => {
-      if (mode === "mistake") {
-        const storedQuestions = await AsyncStorage.getItem('incorrectQuestions');
-        const incorrectQuestions = storedQuestions ? JSON.parse(storedQuestions) : [];
-        setQuestions(shuffleQuestions(filterByCategory(incorrectQuestions, category)));
+      const storedSrs = await AsyncStorage.getItem(SRS_STORAGE_KEY);
+      const srsData = storedSrs ? JSON.parse(storedSrs) : {};
+      srsDataRef.current = srsData;
+
+      if (mode === "review") {
+        const dueQuestions = allQuestions.filter(q => isDue(srsData[q.id]));
+        setQuestions(shuffleQuestions(filterByCategory(dueQuestions, category)));
       } else {
         const shuffled = shuffleQuestions(filterByCategory(allQuestions, category));
         setQuestions(setSize ? shuffled.slice(0, setSize) : shuffled);
@@ -44,58 +48,8 @@ const Questions = ({ route, navigation }) => {
     loadQuestions();
   }, [mode, category, setSize]);
 
-  useEffect(() => {
-    // 🔹 answeredQuestions が更新されたら非同期で不揮発ストレージに保存
-    const saveIncorrectQuestions = async () => {
-      await AsyncStorage.setItem('incorrectQuestions', JSON.stringify(incorrectQuestions));
-    };
-  
-    if (incorrectQuestions.length > 0) {
-      saveIncorrectQuestions();
-    }
-  }, [incorrectQuestions]); 
-
-  // 不揮発領域から間違えた問題を取得
-  const loadIncorrectQuestions = async () => {
-    try {
-      const storedQuestions = await AsyncStorage.getItem('incorrectQuestions');
-      if (storedQuestions) {
-        setIncorrectQuestions(JSON.parse(storedQuestions));
-      }
-    } catch (error) {
-      console.error('間違えた問題の取得に失敗しました:', error);
-    }
-  };
-
-  // 間違えた問題を保存
-  const saveIncorrectQuestion = async (question) => {
-    try {
-      const updatedQuestions = [...incorrectQuestions];
-
-      // 重複を防ぐ
-      if (!updatedQuestions.some(q => q.question === question.question)) {
-        updatedQuestions.push(question);
-        await AsyncStorage.setItem('incorrectQuestions', JSON.stringify(updatedQuestions));
-        setIncorrectQuestions(updatedQuestions);
-      }
-    } catch (error) {
-      console.error('間違えた問題の保存に失敗しました:', error);
-    }
-  };
-
-  // 間違えた問題を削除
-  const removeIncorrectQuestion = async (question) => {
-    try {
-      const updatedQuestions = incorrectQuestions.filter(q => q.question !== question.question);
-      await AsyncStorage.setItem('incorrectQuestions', JSON.stringify(updatedQuestions));
-      setIncorrectQuestions(updatedQuestions);
-    } catch (error) {
-      console.error('間違えた問題の削除に失敗しました:', error);
-    }
-  };
-
   // 選択肢をタップしたときの処理
-  const handleAnswerSelection = async (answer, question) => {
+  const handleAnswerSelection = (answer, question) => {
     if (isAnswered) return; // 解答済みなら二重回答を防ぐ
 
     setSelectedAnswer(answer);
@@ -103,7 +57,6 @@ const Questions = ({ route, navigation }) => {
 
     if (isCorrect) {
       setCorrectAnswersCount(prev => prev + 1);
-      removeIncorrectQuestion(question);
     }
 
     const answeredQuestion = {
@@ -114,19 +67,13 @@ const Questions = ({ route, navigation }) => {
 
     setAnsweredQuestions(prev => [...prev, answeredQuestion]);
 
-    if (!isCorrect) {
-      setIncorrectQuestions(prev => {
-        const updatedQuestions = [...prev];
-        if (!updatedQuestions.some(q => q.question === question.question)) {
-          updatedQuestions.push(question);
-        }
-
-        AsyncStorage.setItem('incorrectQuestions', JSON.stringify(updatedQuestions))
-        .catch(error => console.error('間違えた問題の保存に失敗しました:', error));
-
-        return updatedQuestions;
-      });
-    }
+    const updatedSrsData = {
+      ...srsDataRef.current,
+      [question.id]: scheduleReview(srsDataRef.current[question.id], isCorrect),
+    };
+    srsDataRef.current = updatedSrsData;
+    AsyncStorage.setItem(SRS_STORAGE_KEY, JSON.stringify(updatedSrsData))
+      .catch(error => console.error('復習スケジュールの保存に失敗しました:', error));
 
     setLastAnswerCorrect(isCorrect);
     setIsAnswered(true);

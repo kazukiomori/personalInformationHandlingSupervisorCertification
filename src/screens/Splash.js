@@ -1,8 +1,10 @@
 import { Pressable, StyleSheet, Text, View, Alert } from 'react-native'
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
+import { useFocusEffect } from '@react-navigation/native';
 import tw from 'twrnc';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CATEGORIES, ALL_CATEGORY, filterByCategory } from '../config/question';
+import { CATEGORIES, ALL_CATEGORY, filterByCategory, questions as allQuestions } from '../config/question';
+import { SRS_STORAGE_KEY, isDue } from '../utils/spacedRepetition';
 
 const ALL_SET_SIZE = "all";
 const SET_SIZE_OPTIONS = [10, 20, ALL_SET_SIZE];
@@ -10,6 +12,24 @@ const SET_SIZE_OPTIONS = [10, 20, ALL_SET_SIZE];
 const Splash = ({ navigation }) => {
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
   const [setSize, setSetSize] = useState(ALL_SET_SIZE);
+  const [dueCount, setDueCount] = useState(0);
+
+  const loadDueQuestions = useCallback(async () => {
+    const storedSrs = await AsyncStorage.getItem(SRS_STORAGE_KEY);
+    const srsData = storedSrs ? JSON.parse(storedSrs) : {};
+    return filterByCategory(allQuestions, selectedCategory).filter(q => isDue(srsData[q.id]));
+  }, [selectedCategory]);
+
+  // 復習が必要な問題数は、画面に戻ってくるたび(セッション終了後など)に再取得する
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      loadDueQuestions().then((due) => {
+        if (isActive) setDueCount(due.length);
+      });
+      return () => { isActive = false; };
+    }, [loadDueQuestions])
+  );
 
   const startNormalQuiz = () => {
     navigation.navigate("Questions", {
@@ -19,25 +39,23 @@ const Splash = ({ navigation }) => {
     });
   };
 
-  const startMistakeQuiz = async () => {
+  const startReviewQuiz = async () => {
     try {
-      const storedQuestions = await AsyncStorage.getItem('incorrectQuestions');
-      const incorrectQuestions = storedQuestions ? JSON.parse(storedQuestions) : [];
-      const targetQuestions = filterByCategory(incorrectQuestions, selectedCategory);
+      const dueQuestions = await loadDueQuestions();
 
-      if (targetQuestions.length === 0) {
+      if (dueQuestions.length === 0) {
         Alert.alert(
           "お知らせ",
           selectedCategory === ALL_CATEGORY
-            ? "ミスした問題はありません"
-            : `「${selectedCategory}」でミスした問題はありません`
+            ? "今復習が必要な問題はありません"
+            : `「${selectedCategory}」で今復習が必要な問題はありません`
         );
         return;
       }
 
-      navigation.navigate("Questions", { mode: "mistake", category: selectedCategory });
+      navigation.navigate("Questions", { mode: "review", category: selectedCategory });
     } catch (error) {
-      console.error("ミス問題の取得に失敗しました:", error);
+      console.error("復習問題の取得に失敗しました:", error);
     }
   };
 
@@ -67,7 +85,7 @@ const Splash = ({ navigation }) => {
         })}
       </View>
 
-      {/* Set Size Selector (通常モードの1回あたりの出題数。ミス問題モードには適用しない) */}
+      {/* Set Size Selector (通常モードの1回あたりの出題数。復習モードには適用しない) */}
       <Text style={styles.sectionLabel}>出題数(通常モード)</Text>
       <View style={styles.categoryContainer}>
         {SET_SIZE_OPTIONS.map((size) => {
@@ -92,8 +110,8 @@ const Splash = ({ navigation }) => {
         <Pressable style={styles.levelBox} onPress={startNormalQuiz} >
           <Text style={[styles.levelText, { color: "#FF69B4" }]}>はじめる</Text>
         </Pressable>
-        <Pressable style={styles.levelBox} onPress={startMistakeQuiz} >
-          <Text style={[styles.levelText, { color: "#1E90FF" }]}>ミス問題{"\n"}を復習</Text>
+        <Pressable style={styles.levelBox} onPress={startReviewQuiz} >
+          <Text style={[styles.levelText, { color: "#1E90FF" }]}>復習する{"\n"}({dueCount}問)</Text>
         </Pressable>
       </View>
     </View>
