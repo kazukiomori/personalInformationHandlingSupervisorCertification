@@ -62,10 +62,10 @@ const Splash = ({ navigation }) => {
       {/* Questions Buttons */}
       <View style={styles.levelContainer}>
         <Pressable style={styles.levelBox} onPress={startNormalQuiz} >
-          <Text style={[styles.levelText, { color: "#FF69B4" }]}>選択問題</Text>
+          <Text style={[styles.levelText, { color: "#FF69B4" }]}>はじめる</Text>
         </Pressable>
         <Pressable style={styles.levelBox} onPress={startMistakeQuiz} >
-          <Text style={[styles.levelText, { color: "#1E90FF" }]}>選択問題{"\n"}(ミス問題)</Text>
+          <Text style={[styles.levelText, { color: "#1E90FF" }]}>ミス問題{"\n"}を復習</Text>
         </Pressable>
       </View>
     </View>
