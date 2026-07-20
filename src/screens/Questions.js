@@ -8,6 +8,7 @@ import { SRS_STORAGE_KEY, scheduleReview, isDue } from "../utils/spacedRepetitio
 import { SESSION_HISTORY_KEY, MAX_HISTORY_ENTRIES, createSessionRecord } from "../utils/sessionHistory";
 import { BOOKMARKS_STORAGE_KEY, toggleBookmark } from "../utils/bookmarks";
 import { MOCK_EXAM_QUESTION_COUNT, MOCK_EXAM_TIME_LIMIT_SECONDS, MOCK_EXAM_PASS_RATE, allocateByRatio, formatTime } from "../utils/mockExam";
+import { loadIsPremiumUnlocked } from "../utils/purchases";
 import AppBannerAd from "../components/AppBannerAd";
 
 // Fisher-Yatesで配列の並び順をシャッフルする(元の配列は変更しない)
@@ -47,10 +48,15 @@ const Questions = ({ route, navigation }) => {
   const { mode, category = ALL_CATEGORY, setSize = null } = route.params; // mode: "normal" / "review"(間隔反復) / "bookmark"(要復習) / "mockExam"(模擬試験)
   const [questions, setQuestions] = useState([]);
   const [bookmarkedIds, setBookmarkedIds] = useState([]);
+  const [isPremium, setIsPremium] = useState(false);
   const [timeLeft, setTimeLeft] = useState(MOCK_EXAM_TIME_LIMIT_SECONDS);
   const srsDataRef = useRef({}); // 問題id単位の間隔反復スケジュール(セッション中はメモリ上で保持し、都度AsyncStorageへ反映)
   const examFinishedRef = useRef(false); // 模擬試験が終了処理済みかどうか(タイムアウトと通常終了の二重実行を防ぐ)
   const answerLockRef = useRef(false); // 模擬試験は自動で次へ進むため、連打による二重回答を防ぐ
+
+  useEffect(() => {
+    loadIsPremiumUnlocked().then(setIsPremium);
+  }, []);
 
   useEffect(() => {
     setCurrentQuestionIndex(0); // 問題のインデックスをリセット
@@ -266,7 +272,7 @@ const Questions = ({ route, navigation }) => {
               size={22}
               color="#FFA000"
             />
-            <Text style={styles.bookmarkButtonText}>要復習</Text>
+            <Text style={styles.bookmarkButtonText}>ブックマーク</Text>
           </Pressable>
         </View>
         <Text style={styles.questionText}>{currentQuestion.question}</Text>
@@ -334,7 +340,7 @@ const Questions = ({ route, navigation }) => {
         )}
       </View>
       </ScrollView>
-      <AppBannerAd />
+      {!isPremium && <AppBannerAd />}
     </>
   );
 };

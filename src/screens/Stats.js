@@ -16,7 +16,7 @@ const TREND_SESSION_COUNT = 14; // 正答率推移グラフに表示する直近
 const MODE_LABELS = {
   normal: '通常',
   review: '復習',
-  bookmark: '要復習',
+  bookmark: 'ブックマーク',
   mockExam: '模擬試験',
 };
 const WEAK_THRESHOLD = 60; // これを下回ると弱点として強調表示する正答率(%)

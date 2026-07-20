@@ -8,6 +8,7 @@ import { CATEGORIES, ALL_CATEGORY, filterByCategory, questions as allQuestions }
 import { SRS_STORAGE_KEY, isDue } from '../utils/spacedRepetition';
 import { BOOKMARKS_STORAGE_KEY } from '../utils/bookmarks';
 import { MOCK_EXAM_QUESTION_COUNT, MOCK_EXAM_TIME_LIMIT_SECONDS, MOCK_EXAM_PASS_RATE } from '../utils/mockExam';
+import { loadIsPremiumUnlocked } from '../utils/purchases';
 
 const ALL_SET_SIZE = "all";
 const SET_SIZE_OPTIONS = [10, 20, ALL_SET_SIZE];
@@ -17,6 +18,18 @@ const Splash = ({ navigation }) => {
   const [setSize, setSetSize] = useState(ALL_SET_SIZE);
   const [dueCount, setDueCount] = useState(0);
   const [bookmarkCount, setBookmarkCount] = useState(0);
+  const [isPremium, setIsPremium] = useState(false);
+
+  // プレミアム機能(⭐ブックマーク復習/模擬試験/学習履歴・進捗)を使う前に必ずこれを通す。
+  // 未購入ならPremium画面へ誘導し、対象の処理は実行しない。
+  // 「復習する」(間隔反復・SRS)は無料開放のためここを通さない。
+  const requirePremium = (action) => {
+    if (isPremium) {
+      action();
+    } else {
+      navigation.navigate("Premium");
+    }
+  };
 
   const loadDueQuestions = useCallback(async () => {
     const storedSrs = await AsyncStorage.getItem(SRS_STORAGE_KEY);
@@ -30,7 +43,8 @@ const Splash = ({ navigation }) => {
     return filterByCategory(allQuestions, selectedCategory).filter(q => bookmarkedIds.includes(q.id));
   }, [selectedCategory]);
 
-  // 復習が必要な問題数・ブックマーク数は、画面に戻ってくるたび(セッション終了後など)に再取得する
+  // 復習が必要な問題数・ブックマーク数・プレミアム購入状態は、画面に戻ってくるたび
+  // (セッション終了後やPremium画面から戻った直後など)に再取得する
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
@@ -39,6 +53,9 @@ const Splash = ({ navigation }) => {
       });
       loadBookmarkedQuestions().then((bookmarked) => {
         if (isActive) setBookmarkCount(bookmarked.length);
+      });
+      loadIsPremiumUnlocked().then((premium) => {
+        if (isActive) setIsPremium(premium);
       });
       return () => { isActive = false; };
     }, [loadDueQuestions, loadBookmarkedQuestions])
@@ -80,8 +97,8 @@ const Splash = ({ navigation }) => {
         Alert.alert(
           "お知らせ",
           selectedCategory === ALL_CATEGORY
-            ? "「要復習」のブックマークはまだありません"
-            : `「${selectedCategory}」で「要復習」のブックマークはまだありません`
+            ? "ブックマークした問題はまだありません"
+            : `「${selectedCategory}」でブックマークした問題はまだありません`
         );
         return;
       }
@@ -155,22 +172,26 @@ const Splash = ({ navigation }) => {
           <Text style={[styles.levelText, { color: "#FF69B4" }]}>はじめる</Text>
         </Pressable>
         <Pressable style={styles.levelBox} onPress={startReviewQuiz} >
-          <Text style={[styles.levelText, { color: "#1E90FF" }]}>復習する{"\n"}({dueCount}問)</Text>
+          <Text style={[styles.levelText, { color: "#1E90FF" }]}>
+            復習する{"\n"}({dueCount}問)
+          </Text>
         </Pressable>
-        <Pressable style={styles.levelBox} onPress={startBookmarkQuiz} >
-          <Text style={[styles.levelText, { color: "#FFA000" }]}>⭐要復習{"\n"}({bookmarkCount}問)</Text>
+        <Pressable style={styles.levelBox} onPress={() => requirePremium(startBookmarkQuiz)} >
+          <Text style={[styles.levelText, { color: "#FFA000" }]}>
+            {!isPremium && '🔒'}⭐ブクマ{"\n"}({bookmarkCount}問)
+          </Text>
         </Pressable>
       </View>
 
-      <Pressable style={styles.mockExamCard} onPress={startMockExam}>
-        <Text style={styles.mockExamTitle}>📝 模擬試験(本番想定)</Text>
+      <Pressable style={styles.mockExamCard} onPress={() => requirePremium(startMockExam)}>
+        <Text style={styles.mockExamTitle}>{!isPremium && '🔒'}📝 模擬試験(本番想定)</Text>
         <Text style={styles.mockExamSubtitle}>
           全{MOCK_EXAM_QUESTION_COUNT}問・制限時間{MOCK_EXAM_TIME_LIMIT_SECONDS / 60}分・合格ライン{MOCK_EXAM_PASS_RATE}%
         </Text>
       </Pressable>
 
-      <Pressable style={styles.statsLink} onPress={() => navigation.navigate("Stats")}>
-        <Text style={styles.statsLinkText}>📊 学習履歴・進捗を見る</Text>
+      <Pressable style={styles.statsLink} onPress={() => requirePremium(() => navigation.navigate("Stats"))}>
+        <Text style={styles.statsLinkText}>{!isPremium && '🔒'}📊 学習履歴・進捗を見る</Text>
       </Pressable>
     </View>
   )

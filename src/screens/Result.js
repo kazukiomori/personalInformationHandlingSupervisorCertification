@@ -1,11 +1,17 @@
 import { StyleSheet, View, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Text from '../components/AppText';
+import { loadIsPremiumUnlocked } from '../utils/purchases';
 import AppBannerAd from "../components/AppBannerAd";
 
 const Result = ({ route, navigation }) => {
   const { correctAnswersCount, answeredQuestions, totalCount, passRate } = route.params;
+  const [isPremium, setIsPremium] = useState(false);
+
+  useEffect(() => {
+    loadIsPremiumUnlocked().then(setIsPremium);
+  }, []);
 
   const totalQuestions = totalCount ?? answeredQuestions.length;
   const unansweredCount = totalQuestions - answeredQuestions.length;
@@ -59,7 +65,7 @@ const Result = ({ route, navigation }) => {
         <Text style={styles.buttonText}>トップに戻る</Text>
       </TouchableOpacity>
     </ScrollView>
-    <AppBannerAd />
+    {!isPremium && <AppBannerAd />}
     </SafeAreaView>
   );
 };

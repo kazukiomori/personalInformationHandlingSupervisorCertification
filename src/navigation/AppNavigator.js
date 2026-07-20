@@ -5,6 +5,7 @@ import Splash from "../screens/Splash";
 import Questions from "../screens/Questions";
 import Result from "../screens/Result";
 import Stats from "../screens/Stats";
+import Premium from "../screens/Premium";
 
 const Stack = createNativeStackNavigator();
 
@@ -19,6 +20,11 @@ function RootStack() {
       <Stack.Screen name="Questions" component={Questions} />
       <Stack.Screen name="Result" component={Result} options={{ headerShown: false }} />
       <Stack.Screen name="Stats" component={Stats} options={{ title: '学習履歴・進捗' }} />
+      <Stack.Screen
+        name="Premium"
+        component={Premium}
+        options={{ title: 'プレミアム機能', presentation: 'modal' }}
+      />
     </Stack.Navigator>
   );
 }
