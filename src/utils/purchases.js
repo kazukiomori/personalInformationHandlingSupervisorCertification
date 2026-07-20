@@ -5,6 +5,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // この文字列と同じ商品IDで作成する必要がある。
 export const PREMIUM_PRODUCT_ID = "premium_unlock";
 
+// ストア審査・価格設定前の表示用フォールバック。実際の金額は必ずApp Store Connect /
+// Google Play Consoleの商品price_unlockの価格設定と一致させること。
+export const PREMIUM_PRICE_LABEL = "¥300";
+
 export const PREMIUM_STORAGE_KEY = "isPremiumUnlocked";
 
 // 購入状態はストアへ毎回問い合わせず、AsyncStorageにキャッシュした値を使う。

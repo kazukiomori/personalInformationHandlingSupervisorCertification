@@ -2,7 +2,7 @@ import { StyleSheet, View, ScrollView, Pressable, Alert } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { useIAP } from 'react-native-iap';
 import Text from '../components/AppText';
-import { PREMIUM_PRODUCT_ID, saveIsPremiumUnlocked } from '../utils/purchases';
+import { PREMIUM_PRODUCT_ID, PREMIUM_PRICE_LABEL, saveIsPremiumUnlocked } from '../utils/purchases';
 
 const FEATURES = [
   { icon: '📝', title: '模擬試験モード', description: '制限時間付きで、本番を想定した模擬試験に挑戦できます。' },
@@ -91,7 +91,7 @@ const Premium = ({ navigation }) => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>🔓 プレミアム機能</Text>
-      <Text style={styles.subtitle}>買い切りで、以下の機能がずっと使えるようになります</Text>
+      <Text style={styles.subtitle}>買い切り{PREMIUM_PRICE_LABEL}で、以下の機能がずっと使えるようになります</Text>
 
       {FEATURES.map((feature) => (
         <View key={feature.title} style={styles.featureRow}>
@@ -109,7 +109,7 @@ const Premium = ({ navigation }) => {
         disabled={purchasing || !connected}
       >
         <Text style={styles.purchaseButtonText}>
-          {purchasing ? '処理中...' : product ? `${product.displayPrice} で購入する` : '購入する'}
+          {purchasing ? '処理中...' : `${product ? product.displayPrice : PREMIUM_PRICE_LABEL} で購入する`}
         </Text>
       </Pressable>
 
