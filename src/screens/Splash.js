@@ -15,7 +15,7 @@ const SET_SIZE_OPTIONS = [10, 20, ALL_SET_SIZE];
 
 const Splash = ({ navigation }) => {
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
-  const [setSize, setSetSize] = useState(ALL_SET_SIZE);
+  const [setSize, setSetSize] = useState(10);
   const [dueCount, setDueCount] = useState(0);
   const [bookmarkCount, setBookmarkCount] = useState(0);
   const [isPremium, setIsPremium] = useState(false);
