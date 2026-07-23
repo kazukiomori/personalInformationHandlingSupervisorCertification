@@ -89,46 +89,51 @@ const Premium = ({ navigation }) => {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>🔓 プレミアム機能</Text>
-      <Text style={styles.subtitle}>買い切り{PREMIUM_PRICE_LABEL}で、以下の機能がずっと使えるようになります</Text>
+    <View style={styles.container}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        <Text style={styles.title}>🔓 プレミアム機能</Text>
+        <Text style={styles.subtitle}>買い切り{PREMIUM_PRICE_LABEL}で、以下の機能がずっと使えるようになります</Text>
 
-      {FEATURES.map((feature) => (
-        <View key={feature.title} style={styles.featureRow}>
-          <Text style={styles.featureIcon}>{feature.icon}</Text>
-          <View style={styles.featureTextContainer}>
-            <Text style={styles.featureTitle}>{feature.title}</Text>
-            <Text style={styles.featureDescription}>{feature.description}</Text>
+        {FEATURES.map((feature) => (
+          <View key={feature.title} style={styles.featureRow}>
+            <Text style={styles.featureIcon}>{feature.icon}</Text>
+            <View style={styles.featureTextContainer}>
+              <Text style={styles.featureTitle}>{feature.title}</Text>
+              <Text style={styles.featureDescription}>{feature.description}</Text>
+            </View>
           </View>
-        </View>
-      ))}
+        ))}
 
-      <Pressable
-        style={[styles.purchaseButton, (purchasing || !connected) && styles.purchaseButtonDisabled]}
-        onPress={handlePurchase}
-        disabled={purchasing || !connected}
-      >
-        <Text style={styles.purchaseButtonText}>
-          {purchasing ? '処理中...' : `${product ? product.displayPrice : PREMIUM_PRICE_LABEL} で購入する`}
-        </Text>
-      </Pressable>
+        {__DEV__ && (
+          <View style={styles.devBox}>
+            <Text style={styles.devLabel}>(開発用・実際の課金なし)</Text>
+            <Pressable style={styles.devButton} onPress={() => handleDevToggle(true)}>
+              <Text style={styles.devButtonText}>プレミアムを強制ON</Text>
+            </Pressable>
+            <Pressable style={styles.devButton} onPress={() => handleDevToggle(false)}>
+              <Text style={styles.devButtonText}>プレミアムを強制OFF</Text>
+            </Pressable>
+          </View>
+        )}
+      </ScrollView>
 
-      <Pressable style={styles.restoreButton} onPress={handleRestore}>
-        <Text style={styles.restoreButtonText}>購入を復元する</Text>
-      </Pressable>
+      {/* 購入ボタンはスクロール領域の外に固定し、画面サイズやiPad互換モードに関わらず常に見えるようにする */}
+      <View style={styles.footer}>
+        <Pressable
+          style={[styles.purchaseButton, (purchasing || !connected) && styles.purchaseButtonDisabled]}
+          onPress={handlePurchase}
+          disabled={purchasing || !connected}
+        >
+          <Text style={styles.purchaseButtonText}>
+            {purchasing ? '処理中...' : `${product ? product.displayPrice : PREMIUM_PRICE_LABEL} で購入する`}
+          </Text>
+        </Pressable>
 
-      {__DEV__ && (
-        <View style={styles.devBox}>
-          <Text style={styles.devLabel}>(開発用・実際の課金なし)</Text>
-          <Pressable style={styles.devButton} onPress={() => handleDevToggle(true)}>
-            <Text style={styles.devButtonText}>プレミアムを強制ON</Text>
-          </Pressable>
-          <Pressable style={styles.devButton} onPress={() => handleDevToggle(false)}>
-            <Text style={styles.devButtonText}>プレミアムを強制OFF</Text>
-          </Pressable>
-        </View>
-      )}
-    </ScrollView>
+        <Pressable style={styles.restoreButton} onPress={handleRestore}>
+          <Text style={styles.restoreButtonText}>購入を復元する</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 };
 
@@ -139,9 +144,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  scroll: {
+    flex: 1,
+  },
   content: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 24,
+  },
+  footer: {
+    padding: 20,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e0e0e0',
+    backgroundColor: '#fff',
   },
   title: {
     fontSize: 24,

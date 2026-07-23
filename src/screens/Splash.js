@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View, Alert } from 'react-native'
+import { Pressable, StyleSheet, View, Alert, ScrollView } from 'react-native'
 import React, { useState, useCallback } from 'react'
 import { useFocusEffect } from '@react-navigation/native';
 import Text from '../components/AppText';
@@ -121,7 +121,7 @@ const Splash = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       {/* Header Section */}
       <View style={styles.headerContainer}>
         <Text style={styles.appTitle}>問題演習アプリ</Text>
@@ -193,7 +193,7 @@ const Splash = ({ navigation }) => {
       <Pressable style={styles.statsLink} onPress={() => requirePremium(() => navigation.navigate("Stats"))}>
         <Text style={styles.statsLinkText}>{!isPremium && '🔒'}📊 学習履歴・進捗を見る</Text>
       </Pressable>
-    </View>
+    </ScrollView>
   )
 }
 
@@ -203,8 +203,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#87CEEB",
+  },
+  scrollContent: {
     alignItems: "center",
     paddingTop: 50,
+    paddingBottom: 40,
   },
   headerContainer: {
     marginBottom: 30,
