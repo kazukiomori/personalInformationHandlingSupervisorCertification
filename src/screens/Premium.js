@@ -10,8 +10,20 @@ const FEATURES = [
   { icon: '⭐', title: 'ブックマーク復習', description: '「ブックマーク」した問題だけを集中的に復習できます。' },
 ];
 
+// iOS復元(syncIOS)はApple IDサインイン〜App Store側の応答待ちで、
+// Apple側の障害・混雑時は成功も失敗もせず無期限にpendingし続けることがある。
+// その場合ユーザーには「反応がない」としか見えないため、タイムアウトで必ず結果を返す。
+const RESTORE_TIMEOUT_MS = 15000;
+
+const withTimeout = (promise, ms) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('RESTORE_TIMEOUT')), ms)),
+  ]);
+
 const Premium = ({ navigation }) => {
   const [purchasing, setPurchasing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const alertShownRef = useRef(false);
 
   const {
@@ -27,6 +39,14 @@ const Premium = ({ navigation }) => {
       setPurchasing(false);
       if (purchase.id === PREMIUM_PRODUCT_ID) {
         await finishTransaction({ purchase, isConsumable: false });
+        // availablePurchasesの再取得を待たず、購入成功時点でその場で解放する
+        if (!alertShownRef.current) {
+          alertShownRef.current = true;
+          await saveIsPremiumUnlocked(true);
+          Alert.alert('プレミアム解放', 'プレミアム機能が解放されました🎉', [
+            { text: 'OK', onPress: () => navigation.goBack() },
+          ]);
+        }
       }
     },
     onPurchaseError: (error) => {
@@ -74,10 +94,22 @@ const Premium = ({ navigation }) => {
     }
   };
 
-  const handleRestore = () => {
-    restorePurchases().catch((error) => {
-      Alert.alert('復元エラー', error.message || '購入の復元に失敗しました');
-    });
+  const handleRestore = async () => {
+    setRestoring(true);
+    try {
+      await withTimeout(restorePurchases(), RESTORE_TIMEOUT_MS);
+    } catch (error) {
+      if (error.message === 'RESTORE_TIMEOUT') {
+        Alert.alert(
+          '復元がタイムアウトしました',
+          'App Store側の混雑・障害等により時間がかかっている可能性があります。しばらく時間をおいてから再度お試しください。',
+        );
+      } else {
+        Alert.alert('復元エラー', error.message || '購入の復元に失敗しました');
+      }
+    } finally {
+      setRestoring(false);
+    }
   };
 
   // 開発中の動作確認用。実ストアの決済なしにゲーティングの見た目を確認するためのもの。
@@ -129,8 +161,8 @@ const Premium = ({ navigation }) => {
           </Text>
         </Pressable>
 
-        <Pressable style={styles.restoreButton} onPress={handleRestore}>
-          <Text style={styles.restoreButtonText}>購入を復元する</Text>
+        <Pressable style={styles.restoreButton} onPress={handleRestore} disabled={restoring}>
+          <Text style={styles.restoreButtonText}>{restoring ? '復元中...' : '購入を復元する'}</Text>
         </Pressable>
       </View>
     </View>
