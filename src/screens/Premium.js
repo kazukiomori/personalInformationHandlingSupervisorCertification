@@ -28,6 +28,19 @@ const Premium = ({ navigation }) => {
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const alertShownRef = useRef(false);
+  // 購入結果(onPurchaseSuccess/Error)がApple側の保留で永遠に来ない場合に
+  // 「処理中...」のまま固まるのを防ぐためのタイムアウトタイマー。
+  const purchaseTimerRef = useRef(null);
+
+  const clearPurchaseTimer = () => {
+    if (purchaseTimerRef.current) {
+      clearTimeout(purchaseTimerRef.current);
+      purchaseTimerRef.current = null;
+    }
+  };
+
+  // 画面を離れるときにタイマーを片付ける(未マウントでのsetState防止)
+  useEffect(() => clearPurchaseTimer, []);
 
   const {
     connected,
@@ -39,6 +52,7 @@ const Premium = ({ navigation }) => {
     finishTransaction,
   } = useIAP({
     onPurchaseSuccess: async (purchase) => {
+      clearPurchaseTimer();
       setPurchasing(false);
       if (purchase.id === PREMIUM_PRODUCT_ID) {
         await finishTransaction({ purchase, isConsumable: false });
@@ -53,6 +67,7 @@ const Premium = ({ navigation }) => {
       }
     },
     onPurchaseError: (error) => {
+      clearPurchaseTimer();
       setPurchasing(false);
       if (error.code !== 'user-cancelled') {
         Alert.alert('購入エラー', error.message || '購入処理に失敗しました');
@@ -83,24 +98,31 @@ const Premium = ({ navigation }) => {
 
   const handlePurchase = async () => {
     setPurchasing(true);
+    // requestPurchaseはリクエスト開始時点で解決し、実際の購入結果は
+    // onPurchaseSuccess/onPurchaseErrorで届く。Apple側の保留でそれらが
+    // いつまでも来ない場合に備え、別建てのタイマーでタイムアウトさせる。
+    clearPurchaseTimer();
+    purchaseTimerRef.current = setTimeout(() => {
+      purchaseTimerRef.current = null;
+      setPurchasing(false);
+      Alert.alert(
+        '購入がタイムアウトしました',
+        'App Store側の混雑・障害等により時間がかかっている可能性があります。しばらく時間をおいてから再度お試しください。',
+      );
+    }, PURCHASE_TIMEOUT_MS);
+
     try {
-      await withTimeout(requestPurchase({
+      await requestPurchase({
         request: {
           apple: { sku: PREMIUM_PRODUCT_ID },
           google: { skus: [PREMIUM_PRODUCT_ID] },
         },
         type: 'in-app',
-      }), PURCHASE_TIMEOUT_MS);
+      });
     } catch (error) {
+      clearPurchaseTimer();
       setPurchasing(false);
-      if (error.message === IAP_TIMEOUT_ERROR) {
-        Alert.alert(
-          '購入がタイムアウトしました',
-          'App Store側の混雑・障害等により時間がかかっている可能性があります。しばらく時間をおいてから再度お試しください。',
-        );
-      } else {
-        Alert.alert('購入エラー', error.message || '購入処理に失敗しました');
-      }
+      Alert.alert('購入エラー', error.message || '購入処理に失敗しました');
     }
   };
 
