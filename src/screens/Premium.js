@@ -30,6 +30,7 @@ const Premium = ({ navigation }) => {
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const alertShownRef = useRef(false);
+  const pendingAlertShownRef = useRef(false);
   // 購入結果(onPurchaseSuccess/Error)がApple側の保留で永遠に来ない場合に
   // 「処理中...」のまま固まるのを防ぐためのタイムアウトタイマー。
   const purchaseTimerRef = useRef(null);
@@ -56,17 +57,32 @@ const Premium = ({ navigation }) => {
     onPurchaseSuccess: async (purchase) => {
       clearPurchaseTimer();
       setPurchasing(false);
-      if (purchase.id === PREMIUM_PRODUCT_ID) {
-        await finishTransaction({ purchase, isConsumable: false });
-        // availablePurchasesの再取得を待たず、購入成功時点でその場で解放する
-        if (!alertShownRef.current) {
-          alertShownRef.current = true;
-          await saveIsPremiumUnlocked(true);
-          await refreshPremiumStatus();
-          Alert.alert('プレミアム解放', 'プレミアム機能が解放されました🎉', [
-            { text: 'OK', onPress: () => navigation.goBack() },
-          ]);
+      if (purchase.id !== PREMIUM_PRODUCT_ID) return;
+
+      // Ask to Buy(ファミリー共有の承認待ち)や支払い方法の確認待ちの場合、
+      // purchaseStateが'pending'のままコールバックが呼ばれることがある。
+      // ここでfinishTransaction・プレミアム解放をしてしまうと、後で保留が
+      // 失敗に終わった場合に無料で機能を使われてしまうため、確定するまで待つ。
+      if (purchase.purchaseState === 'pending') {
+        if (!pendingAlertShownRef.current) {
+          pendingAlertShownRef.current = true;
+          Alert.alert(
+            '購入が保留中です',
+            'ファミリー共有の承認待ち、または支払い方法の確認待ちの可能性があります。確認が完了次第、自動的にプレミアム機能が解放されます。',
+          );
         }
+        return;
+      }
+
+      await finishTransaction({ purchase, isConsumable: false });
+      // availablePurchasesの再取得を待たず、購入成功時点でその場で解放する
+      if (!alertShownRef.current) {
+        alertShownRef.current = true;
+        await saveIsPremiumUnlocked(true);
+        await refreshPremiumStatus();
+        Alert.alert('プレミアム解放', 'プレミアム機能が解放されました🎉', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
       }
     },
     onPurchaseError: (error) => {
@@ -86,7 +102,10 @@ const Premium = ({ navigation }) => {
   }, [connected]);
 
   useEffect(() => {
-    const owned = availablePurchases.some((p) => p.id === PREMIUM_PRODUCT_ID);
+    // 'pending'(保留中)の取引は所有とみなさない。purchaseStateがpurchasedのものだけを見る。
+    const owned = availablePurchases.some(
+      (p) => p.id === PREMIUM_PRODUCT_ID && p.purchaseState === 'purchased'
+    );
     if (owned && !alertShownRef.current) {
       alertShownRef.current = true;
       saveIsPremiumUnlocked(true).then(() => refreshPremiumStatus()).then(() => {

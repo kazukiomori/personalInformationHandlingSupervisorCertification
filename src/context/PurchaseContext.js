@@ -33,7 +33,11 @@ export const PurchaseProvider = ({ children }) => {
   }, [connected, restorePurchases]);
 
   useEffect(() => {
-    const owned = availablePurchases.some((p) => p.id === PREMIUM_PRODUCT_ID);
+    // 'pending'(Ask to Buyの承認待ち・支払い確認待ちなど)の取引は所有とみなさない。
+    // purchaseStateがpurchasedのものだけを「所有済み」として扱う。
+    const owned = availablePurchases.some(
+      (p) => p.id === PREMIUM_PRODUCT_ID && p.purchaseState === 'purchased'
+    );
     if (owned) {
       setIsPremium(true);
       saveIsPremiumUnlocked(true);
