@@ -24,7 +24,10 @@
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "6741392687"
+        "ascAppId": "6741392687",
+        "ascApiKeyPath": "./credentials/AuthKey_LQ73R85AMC.p8",
+        "ascApiKeyId": "LQ73R85AMC",
+        "ascApiKeyIssuerId": "66588443-4d14-454f-abda-954597524f8e"
       }
     }
   }
