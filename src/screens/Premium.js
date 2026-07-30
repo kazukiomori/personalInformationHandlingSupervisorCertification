@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useIAP } from 'react-native-iap';
 import Text from '../components/AppText';
 import { PREMIUM_PRODUCT_ID, PREMIUM_PRICE_LABEL, saveIsPremiumUnlocked } from '../utils/purchases';
+import { usePurchaseStatus } from '../context/PurchaseContext';
 
 const FEATURES = [
   { icon: '📝', title: '模擬試験モード', description: '制限時間付きで、本番を想定した模擬試験に挑戦できます。' },
@@ -25,6 +26,7 @@ const withTimeout = (promise, ms) =>
   ]);
 
 const Premium = ({ navigation }) => {
+  const { refreshPremiumStatus } = usePurchaseStatus();
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const alertShownRef = useRef(false);
@@ -60,6 +62,7 @@ const Premium = ({ navigation }) => {
         if (!alertShownRef.current) {
           alertShownRef.current = true;
           await saveIsPremiumUnlocked(true);
+          await refreshPremiumStatus();
           Alert.alert('プレミアム解放', 'プレミアム機能が解放されました🎉', [
             { text: 'OK', onPress: () => navigation.goBack() },
           ]);
@@ -86,7 +89,7 @@ const Premium = ({ navigation }) => {
     const owned = availablePurchases.some((p) => p.id === PREMIUM_PRODUCT_ID);
     if (owned && !alertShownRef.current) {
       alertShownRef.current = true;
-      saveIsPremiumUnlocked(true).then(() => {
+      saveIsPremiumUnlocked(true).then(() => refreshPremiumStatus()).then(() => {
         Alert.alert('プレミアム解放', 'プレミアム機能が解放されました🎉', [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
@@ -147,6 +150,7 @@ const Premium = ({ navigation }) => {
   // 開発中の動作確認用。実ストアの決済なしにゲーティングの見た目を確認するためのもの。
   const handleDevToggle = async (value) => {
     await saveIsPremiumUnlocked(value);
+    await refreshPremiumStatus();
     Alert.alert('開発用', `プレミアム状態を${value ? 'ON' : 'OFF'}にしました`, [
       { text: 'OK', onPress: () => navigation.goBack() },
     ]);

@@ -1,17 +1,13 @@
 import { StyleSheet, View, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Text from '../components/AppText';
-import { loadIsPremiumUnlocked } from '../utils/purchases';
+import { usePurchaseStatus } from '../context/PurchaseContext';
 import AppBannerAd from "../components/AppBannerAd";
 
 const Result = ({ route, navigation }) => {
+  const { isPremium } = usePurchaseStatus();
   const { correctAnswersCount, answeredQuestions, totalCount, passRate } = route.params;
-  const [isPremium, setIsPremium] = useState(false);
-
-  useEffect(() => {
-    loadIsPremiumUnlocked().then(setIsPremium);
-  }, []);
 
   const totalQuestions = totalCount ?? answeredQuestions.length;
   const unansweredCount = totalQuestions - answeredQuestions.length;

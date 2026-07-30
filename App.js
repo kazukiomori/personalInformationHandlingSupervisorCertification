@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import mobileAds from 'react-native-google-mobile-ads';
 import { useFonts, NotoSansJP_400Regular, NotoSansJP_700Bold } from '@expo-google-fonts/noto-sans-jp';
 import AppNavigator from "./src/navigation/AppNavigator";
+import { PurchaseProvider } from "./src/context/PurchaseContext";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -22,5 +23,9 @@ export default function App() {
     return <View />;
   }
 
-  return <AppNavigator />;
+  return (
+    <PurchaseProvider>
+      <AppNavigator />
+    </PurchaseProvider>
+  );
 }

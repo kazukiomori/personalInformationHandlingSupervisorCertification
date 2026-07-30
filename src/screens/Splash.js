@@ -8,17 +8,17 @@ import { CATEGORIES, ALL_CATEGORY, filterByCategory, questions as allQuestions }
 import { SRS_STORAGE_KEY, isDue } from '../utils/spacedRepetition';
 import { BOOKMARKS_STORAGE_KEY } from '../utils/bookmarks';
 import { MOCK_EXAM_QUESTION_COUNT, MOCK_EXAM_TIME_LIMIT_SECONDS, MOCK_EXAM_PASS_RATE } from '../utils/mockExam';
-import { loadIsPremiumUnlocked } from '../utils/purchases';
+import { usePurchaseStatus } from '../context/PurchaseContext';
 
 const ALL_SET_SIZE = "all";
 const SET_SIZE_OPTIONS = [10, 20, ALL_SET_SIZE];
 
 const Splash = ({ navigation }) => {
+  const { isPremium } = usePurchaseStatus();
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
   const [setSize, setSetSize] = useState(10);
   const [dueCount, setDueCount] = useState(0);
   const [bookmarkCount, setBookmarkCount] = useState(0);
-  const [isPremium, setIsPremium] = useState(false);
 
   // プレミアム機能(⭐ブックマーク復習/模擬試験/学習履歴・進捗)を使う前に必ずこれを通す。
   // 未購入ならPremium画面へ誘導し、対象の処理は実行しない。
@@ -43,7 +43,7 @@ const Splash = ({ navigation }) => {
     return filterByCategory(allQuestions, selectedCategory).filter(q => bookmarkedIds.includes(q.id));
   }, [selectedCategory]);
 
-  // 復習が必要な問題数・ブックマーク数・プレミアム購入状態は、画面に戻ってくるたび
+  // 復習が必要な問題数・ブックマーク数は、画面に戻ってくるたび
   // (セッション終了後やPremium画面から戻った直後など)に再取得する
   useFocusEffect(
     useCallback(() => {
@@ -53,9 +53,6 @@ const Splash = ({ navigation }) => {
       });
       loadBookmarkedQuestions().then((bookmarked) => {
         if (isActive) setBookmarkCount(bookmarked.length);
-      });
-      loadIsPremiumUnlocked().then((premium) => {
-        if (isActive) setIsPremium(premium);
       });
       return () => { isActive = false; };
     }, [loadDueQuestions, loadBookmarkedQuestions])
