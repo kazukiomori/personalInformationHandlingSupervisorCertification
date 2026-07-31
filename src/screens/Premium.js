@@ -15,7 +15,7 @@ const FEATURES = [
 // Apple側の障害・混雑時は成功も失敗もせず無期限にpendingし続けることがある。
 // その場合ユーザーには「反応がない」としか見えないため、タイムアウトで必ず結果を返す。
 // 購入はFace ID/パスワード入力等のユーザー操作を挟むため、復元より長めに待つ。
-const RESTORE_TIMEOUT_MS = 15000;
+const RESTORE_TIMEOUT_MS = 30000;
 const PURCHASE_TIMEOUT_MS = 30000;
 const IAP_TIMEOUT_ERROR = 'IAP_TIMEOUT';
 
@@ -56,7 +56,9 @@ const Premium = ({ navigation }) => {
     onPurchaseSuccess: async (purchase) => {
       clearPurchaseTimer();
       setPurchasing(false);
-      if (purchase.id !== PREMIUM_PRODUCT_ID) return;
+      // purchase.idは取引ID(iOS: transactionId / Android: orderId)であり商品IDではない。
+      // 商品を判定する際は必ずproductIdを見る。
+      if (purchase.productId !== PREMIUM_PRODUCT_ID) return;
 
       // Ask to Buy(ファミリー共有の承認待ち)や支払い方法の確認待ちの場合、
       // purchaseStateが'pending'のままコールバックが呼ばれることがある。
@@ -73,12 +75,19 @@ const Premium = ({ navigation }) => {
         return;
       }
 
-      await finishTransaction({ purchase, isConsumable: false });
-      // availablePurchasesの再取得を待たず、購入成功時点でその場で解放する
+      // availablePurchasesの再取得を待たず、購入成功時点でその場で解放する。
+      // finishTransactionより先にエンタイトルメント付与を行うことで、万一
+      // finishTransaction前後でアプリが落ちても「決済済みなのに未解放」を防ぐ。
       if (!alertShownRef.current) {
         alertShownRef.current = true;
         await saveIsPremiumUnlocked(true);
         await refreshPremiumStatus();
+        try {
+          await finishTransaction({ purchase, isConsumable: false });
+        } catch (error) {
+          // 次回起動時にiOSが未完了トランザクションとして再度届けてくれるため、
+          // ここでの失敗はユーザーへの解放アラートをブロックしない。
+        }
         Alert.alert('プレミアム解放', 'プレミアム機能が解放されました🎉', [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
@@ -104,16 +113,24 @@ const Premium = ({ navigation }) => {
 
   useEffect(() => {
     // 'pending'(保留中)の取引は所有とみなさない。purchaseStateがpurchasedのものだけを見る。
-    const owned = availablePurchases.some(
-      (p) => p.id === PREMIUM_PRODUCT_ID && p.purchaseState === 'purchased'
+    // p.idは取引ID(transactionId/orderId)なので商品IDの比較にはp.productIdを使う。
+    const ownedPurchase = availablePurchases.find(
+      (p) => p.productId === PREMIUM_PRODUCT_ID && p.purchaseState === 'purchased'
     );
-    if (owned && !alertShownRef.current) {
+    if (ownedPurchase && !alertShownRef.current) {
       alertShownRef.current = true;
-      saveIsPremiumUnlocked(true).then(() => refreshPremiumStatus()).then(() => {
+      (async () => {
+        await saveIsPremiumUnlocked(true);
+        await refreshPremiumStatus();
+        try {
+          await finishTransaction({ purchase: ownedPurchase, isConsumable: false });
+        } catch (error) {
+          // 既に完了済みのトランザクションはエラー扱いにならない実装だが、念のため無視する。
+        }
         Alert.alert('プレミアム解放', 'プレミアム機能が解放されました🎉', [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
-      });
+      })();
     }
   }, [availablePurchases]);
 
@@ -215,7 +232,7 @@ const Premium = ({ navigation }) => {
           </Text>
         </Pressable>
 
-        <Pressable style={styles.restoreButton} onPress={handleRestore} disabled={restoring}>
+        <Pressable style={styles.restoreButton} onPress={handleRestore} disabled={restoring || !connected}>
           <Text style={styles.restoreButtonText}>{restoring ? '復元中...' : '購入を復元する'}</Text>
         </Pressable>
       </View>

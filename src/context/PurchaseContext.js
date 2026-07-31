@@ -23,7 +23,7 @@ export const PurchaseProvider = ({ children }) => {
     refreshPremiumStatus();
   }, [refreshPremiumStatus]);
 
-  const { connected, availablePurchases, getAvailablePurchases } = useIAP();
+  const { connected, availablePurchases, getAvailablePurchases, finishTransaction } = useIAP();
 
   useEffect(() => {
     if (!connected) return;
@@ -38,14 +38,19 @@ export const PurchaseProvider = ({ children }) => {
   useEffect(() => {
     // 'pending'(Ask to Buyの承認待ち・支払い確認待ちなど)の取引は所有とみなさない。
     // purchaseStateがpurchasedのものだけを「所有済み」として扱う。
-    const owned = availablePurchases.some(
-      (p) => p.id === PREMIUM_PRODUCT_ID && p.purchaseState === 'purchased'
+    // p.idは取引ID(transactionId/orderId)なので商品IDの比較にはp.productIdを使う。
+    const ownedPurchase = availablePurchases.find(
+      (p) => p.productId === PREMIUM_PRODUCT_ID && p.purchaseState === 'purchased'
     );
-    if (owned) {
+    if (ownedPurchase) {
       setIsPremium(true);
       saveIsPremiumUnlocked(true);
+      // Premium画面を開かずにここで初めて所有が判明するケース(起動時のバック
+      // グラウンド検知など)もあるため、ここでもfinishTransactionしておく。
+      // 既に完了済みのトランザクションに対する呼び出しは失敗しても無害。
+      finishTransaction({ purchase: ownedPurchase, isConsumable: false }).catch(() => {});
     }
-  }, [availablePurchases]);
+  }, [availablePurchases, finishTransaction]);
 
   return (
     <PurchaseContext.Provider value={{ isPremium, refreshPremiumStatus }}>
