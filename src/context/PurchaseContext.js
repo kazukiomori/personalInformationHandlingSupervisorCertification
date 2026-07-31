@@ -23,14 +23,17 @@ export const PurchaseProvider = ({ children }) => {
     refreshPremiumStatus();
   }, [refreshPremiumStatus]);
 
-  const { connected, availablePurchases, restorePurchases } = useIAP();
+  const { connected, availablePurchases, getAvailablePurchases } = useIAP();
 
   useEffect(() => {
     if (!connected) return;
+    // restorePurchases()はiOSでsyncIOS(AppStore.sync())を呼び、Apple IDの
+    // サインインを毎回要求してしまうため、起動時の自動チェックでは使わない。
+    // getAvailablePurchases()は認証プロンプトなしで現在の所有状況を読める。
     // タイムアウトは設けない(結果を待ってUIを変える処理ではないため)。
     // 失敗・オフラインは無音で無視し、キャッシュ値のまま維持する。
-    restorePurchases().catch(() => {});
-  }, [connected, restorePurchases]);
+    getAvailablePurchases().catch(() => {});
+  }, [connected, getAvailablePurchases]);
 
   useEffect(() => {
     // 'pending'(Ask to Buyの承認待ち・支払い確認待ちなど)の取引は所有とみなさない。

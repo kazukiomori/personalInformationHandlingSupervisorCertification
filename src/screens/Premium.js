@@ -52,6 +52,7 @@ const Premium = ({ navigation }) => {
     fetchProducts,
     requestPurchase,
     restorePurchases,
+    getAvailablePurchases,
     finishTransaction,
   } = useIAP({
     onPurchaseSuccess: async (purchase) => {
@@ -97,8 +98,11 @@ const Premium = ({ navigation }) => {
   useEffect(() => {
     if (!connected) return;
     fetchProducts({ skus: [PREMIUM_PRODUCT_ID], type: 'in-app' });
-    // 起動時にも一度復元チェックし、再インストール後の既存購入者をすぐ解放する
-    restorePurchases().catch(() => {});
+    // 画面を開いた時にも一度所有状況をチェックし、再インストール後の既存購入者をすぐ解放する。
+    // restorePurchases()はiOSでApple IDサインインを毎回要求してしまうため、
+    // 自動チェックでは認証プロンプトの出ないgetAvailablePurchases()を使う。
+    // (手動の「購入を復元する」ボタンは従来どおりrestorePurchases()を使う)
+    getAvailablePurchases().catch(() => {});
   }, [connected]);
 
   useEffect(() => {
