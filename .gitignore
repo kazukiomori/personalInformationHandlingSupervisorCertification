@@ -19,6 +19,9 @@ expo-env.d.ts
 /android
 /ios
 
+# Google Play service account key
+credentials/*.json
+
 # Metro
 .metro-health-check*
 
