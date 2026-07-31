@@ -47,9 +47,7 @@ const Premium = ({ navigation }) => {
 
   const {
     connected,
-    products,
     availablePurchases,
-    fetchProducts,
     requestPurchase,
     restorePurchases,
     getAvailablePurchases,
@@ -97,7 +95,6 @@ const Premium = ({ navigation }) => {
 
   useEffect(() => {
     if (!connected) return;
-    fetchProducts({ skus: [PREMIUM_PRODUCT_ID], type: 'in-app' });
     // 画面を開いた時にも一度所有状況をチェックし、再インストール後の既存購入者をすぐ解放する。
     // restorePurchases()はiOSでApple IDサインインを毎回要求してしまうため、
     // 自動チェックでは認証プロンプトの出ないgetAvailablePurchases()を使う。
@@ -119,8 +116,6 @@ const Premium = ({ navigation }) => {
       });
     }
   }, [availablePurchases]);
-
-  const product = products.find((p) => p.id === PREMIUM_PRODUCT_ID);
 
   const handlePurchase = async () => {
     setPurchasing(true);
@@ -216,7 +211,7 @@ const Premium = ({ navigation }) => {
           disabled={purchasing || !connected}
         >
           <Text style={styles.purchaseButtonText}>
-            {purchasing ? '処理中...' : `${product ? product.displayPrice : PREMIUM_PRICE_LABEL} で購入する`}
+            {purchasing ? '処理中...' : `${PREMIUM_PRICE_LABEL} で購入する`}
           </Text>
         </Pressable>
 
