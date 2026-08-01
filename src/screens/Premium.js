@@ -31,6 +31,10 @@ const Premium = ({ navigation }) => {
   const [restoring, setRestoring] = useState(false);
   const alertShownRef = useRef(false);
   const pendingAlertShownRef = useRef(false);
+  // 「購入を復元する」ボタンを押している最中かどうか。onErrorはuseIAP内部の
+  // optionsRef経由で常に最新のクロージャを読むため実害はないはずだが、
+  // stateよりrefの方が確実なのでこちらを使う。
+  const restoreRequestedRef = useRef(false);
   // 購入結果(onPurchaseSuccess/Error)がApple側の保留で永遠に来ない場合に
   // 「処理中...」のまま固まるのを防ぐためのタイムアウトタイマー。
   const purchaseTimerRef = useRef(null);
@@ -80,17 +84,30 @@ const Premium = ({ navigation }) => {
       // finishTransaction前後でアプリが落ちても「決済済みなのに未解放」を防ぐ。
       if (!alertShownRef.current) {
         alertShownRef.current = true;
-        await saveIsPremiumUnlocked(true);
-        await refreshPremiumStatus();
         try {
-          await finishTransaction({ purchase, isConsumable: false });
+          await saveIsPremiumUnlocked(true);
+          await refreshPremiumStatus();
+          try {
+            await finishTransaction({ purchase, isConsumable: false });
+          } catch (error) {
+            // 次回起動時にiOSが未完了トランザクションとして再度届けてくれるため、
+            // ここでの失敗はユーザーへの解放アラートをブロックしない。ただしログは残す。
+            console.warn('[iap] finishTransaction failed', error);
+          }
+          Alert.alert('プレミアム解放', 'プレミアム機能が解放されました🎉', [
+            { text: 'OK', onPress: () => navigation.goBack() },
+          ]);
         } catch (error) {
-          // 次回起動時にiOSが未完了トランザクションとして再度届けてくれるため、
-          // ここでの失敗はユーザーへの解放アラートをブロックしない。
+          // saveIsPremiumUnlocked/refreshPremiumStatus自体が失敗した場合、
+          // alertShownRefをtrueのまま残すと以後この画面で解放処理が二度と
+          // 走らなくなるため戻す。
+          console.warn('[iap] unlock failed', error);
+          alertShownRef.current = false;
+          Alert.alert(
+            '購入確認エラー',
+            '購入は完了している可能性がありますが、アプリ内での反映に失敗しました。「購入を復元する」をお試しください。',
+          );
         }
-        Alert.alert('プレミアム解放', 'プレミアム機能が解放されました🎉', [
-          { text: 'OK', onPress: () => navigation.goBack() },
-        ]);
       }
     },
     onPurchaseError: (error) => {
@@ -98,6 +115,15 @@ const Premium = ({ navigation }) => {
       setPurchasing(false);
       if (error.code !== 'user-cancelled') {
         Alert.alert('購入エラー', error.message || '購入処理に失敗しました');
+      }
+    },
+    // restorePurchases()はiOS側のsyncIOS(サーバー同期)が失敗しても内部で
+    // 握りつぶして正常終了してしまうため、ここで拾わないとユーザーには
+    // 何も起きていないように見えてしまう。バックグラウンドの自動チェック
+    // 中は静かに無視し、ユーザーが「購入を復元する」を押した直後だけ表示する。
+    onError: (error) => {
+      if (restoreRequestedRef.current) {
+        Alert.alert('復元エラー', error.message || '購入の復元に失敗しました');
       }
     },
   });
@@ -120,16 +146,22 @@ const Premium = ({ navigation }) => {
     if (ownedPurchase && !alertShownRef.current) {
       alertShownRef.current = true;
       (async () => {
-        await saveIsPremiumUnlocked(true);
-        await refreshPremiumStatus();
         try {
-          await finishTransaction({ purchase: ownedPurchase, isConsumable: false });
+          await saveIsPremiumUnlocked(true);
+          await refreshPremiumStatus();
+          try {
+            await finishTransaction({ purchase: ownedPurchase, isConsumable: false });
+          } catch (error) {
+            // 既に完了済みのトランザクションはエラー扱いにならない実装だが、念のためログに残す。
+            console.warn('[iap] finishTransaction failed', error);
+          }
+          Alert.alert('プレミアム解放', 'プレミアム機能が解放されました🎉', [
+            { text: 'OK', onPress: () => navigation.goBack() },
+          ]);
         } catch (error) {
-          // 既に完了済みのトランザクションはエラー扱いにならない実装だが、念のため無視する。
+          console.warn('[iap] unlock failed', error);
+          alertShownRef.current = false;
         }
-        Alert.alert('プレミアム解放', 'プレミアム機能が解放されました🎉', [
-          { text: 'OK', onPress: () => navigation.goBack() },
-        ]);
       })();
     }
   }, [availablePurchases]);
@@ -144,7 +176,7 @@ const Premium = ({ navigation }) => {
       purchaseTimerRef.current = null;
       setPurchasing(false);
       Alert.alert(
-        '購入がタイムアウトしました',
+        '購入処理に時間がかかっています',
         'App Store側の混雑・障害等により時間がかかっている可能性があります。しばらく時間をおいてから再度お試しください。',
       );
     }, PURCHASE_TIMEOUT_MS);
@@ -165,13 +197,28 @@ const Premium = ({ navigation }) => {
   };
 
   const handleRestore = async () => {
+    restoreRequestedRef.current = true;
     setRestoring(true);
     try {
       await withTimeout(restorePurchases(), RESTORE_TIMEOUT_MS);
+      // restorePurchases()が正常終了しても、対象の購入が見つからなければ
+      // availablePurchases監視のuseEffectは何もしないため、ユーザーには
+      // 「復元中...→何も起きない」としか見えない。少し待って、まだ解放
+      // されていなければ「見つかりませんでした」と案内する。
+      setTimeout(() => {
+        if (restoreRequestedRef.current && !alertShownRef.current) {
+          Alert.alert(
+            '復元できませんでした',
+            '復元可能な購入情報が見つかりませんでした。購入時と同じApple IDでサインインしているかご確認ください。',
+          );
+        }
+        restoreRequestedRef.current = false;
+      }, 1500);
     } catch (error) {
+      restoreRequestedRef.current = false;
       if (error.message === IAP_TIMEOUT_ERROR) {
         Alert.alert(
-          '復元がタイムアウトしました',
+          '復元に時間がかかっています',
           'App Store側の混雑・障害等により時間がかかっている可能性があります。しばらく時間をおいてから再度お試しください。',
         );
       } else {
