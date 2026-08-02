@@ -190,6 +190,12 @@ const Splash = ({ navigation }) => {
       <Pressable style={styles.statsLink} onPress={() => requirePremium(() => navigation.navigate("Stats"))}>
         <Text style={styles.statsLinkText}>{!isPremium && '🔒'}📊 学習履歴・進捗を見る</Text>
       </Pressable>
+
+      {__DEV__ && (
+        <Pressable style={styles.statsLink} onPress={() => navigation.navigate("Premium")}>
+          <Text style={styles.statsLinkText}>(開発用)Premium画面を開く</Text>
+        </Pressable>
+      )}
     </ScrollView>
   )
 }

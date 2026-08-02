@@ -1,6 +1,6 @@
 import { StyleSheet, View, ScrollView, Pressable, Alert } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import { useIAP } from 'react-native-iap';
+import { useIAP, getAllTransactionsIOS } from 'react-native-iap';
 import Text from '../components/AppText';
 import { PREMIUM_PRODUCT_ID, PREMIUM_PRICE_LABEL, saveIsPremiumUnlocked } from '../utils/purchases';
 import { usePurchaseStatus } from '../context/PurchaseContext';
@@ -143,13 +143,23 @@ const Premium = ({ navigation }) => {
     const ownedPurchase = availablePurchases.find(
       (p) => p.productId === PREMIUM_PRODUCT_ID && p.purchaseState === 'purchased'
     );
-    if (ownedPurchase && !alertShownRef.current) {
+    // __DEV__時は開発用トグルでの手動テストを優先し、自動付与はしない
+    // (PurchaseContext.jsと同じ理由)。
+    if (!__DEV__ && ownedPurchase && !alertShownRef.current) {
       alertShownRef.current = true;
       (async () => {
         try {
           await saveIsPremiumUnlocked(true);
           await refreshPremiumStatus();
           try {
+            // getAvailablePurchases()/restorePurchases()由来の購入はreact-native-iap
+            // (v15.5.2)のiOSネイティブ側キャッシュ(purchasePayloadById)を埋めないため、
+            // そのままfinishTransactionすると「Missing cached purchase payload」で
+            // デコード失敗する既知の問題がある。getPendingTransactionsIOS()
+            // (Transaction.unfinished)は既に一度finishTransaction済みの取引を
+            // 拾えないため、完了・未完了を問わず全取引を返すgetAllTransactionsIOS()
+            // (Transaction.all)を先に呼んでキャッシュを埋めてからfinishTransactionする。
+            await getAllTransactionsIOS().catch(() => {});
             await finishTransaction({ purchase: ownedPurchase, isConsumable: false });
           } catch (error) {
             // 既に完了済みのトランザクションはエラー扱いにならない実装だが、念のためログに残す。
