@@ -23,7 +23,7 @@
       "package": "com.kazuki.personalInformationHandlingSupervisorCertification",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#66ccff"
       }
     },
     "web": {
